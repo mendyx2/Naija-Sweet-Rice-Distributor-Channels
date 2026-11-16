@@ -1,0 +1,38 @@
+"use server";
+
+import { z } from "zod";
+import { priceCart, couponMessage, storeMessage } from "@/lib/checkout-data";
+import { describeIssue } from "@/lib/pricing";
+import { formatNaira } from "@/lib/money";
+import { getCurrentUser, isApprovedSeller } from "@/lib/auth";
+import { availableCoupons } from "@/lib/redeem";
+
+const input = z.object({
+  lines: z.array(z.object({ variantId: z.string().max(40), qty: z.number().int().min(1).max(100) })).max(20),
+  zoneId: z.string().max(40).nullable().optional(),
+  storeId: z.string().max(40).nullable().optional(),
+  fulfillment: z.enum(["DELIVERY", "PICKUP"]).nullable().optional(),
+  couponCode: z.string().max(40).nullable().optional(),
+});
+
+/** Prices the cart on the server. The browser never decides amounts. */
+export async function getCartQuote(raw: unknown) {
+  const parsed = input.safeParse(raw);
+  if (!parsed.success) return null;
+  const user = await getCurrentUser();
+  const r = await priceCart({
+    ...parsed.data,
+    userId: user?.id,
+    wholesale: user ? isApprovedSeller(user) : false,
+  });
+  const mine = user ? await availableCoupons(user.id) : [];
+  return {
+    ...r,
+    myCoupons: mine.map((c) => ({ code: c.code, label: c.type === "FIXED" ? `${formatNaira(c.value)} off` : `${c.value}% off` })),
+    issues: r.quote?.issues.map((i) => describeIssue(i, formatNaira)) ?? [],
+    couponMessage: couponMessage(r.couponIssue),
+    storeMessage: storeMessage(r.storeIssue, r.fulfiller?.name),
+  };
+}
+
+export type CartQuoteResult = NonNullable<Awaited<ReturnType<typeof getCartQuote>>>;

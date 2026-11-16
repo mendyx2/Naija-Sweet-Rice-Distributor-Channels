@@ -1,0 +1,160 @@
+"use client";
+
+import Link from "next/link";
+import { useActionState, useEffect, useState, useTransition } from "react";
+import { useCart } from "@/lib/cart-store";
+import { formatNaira } from "@/lib/money";
+import { BagThumb } from "@/components/bag-thumb";
+import { OrderSummary } from "@/components/order-summary";
+import { ZoneSelect, type ZoneOption } from "@/components/zone-select";
+import { getCartQuote, type CartQuoteResult } from "../cart/actions";
+import { placeOrder, type CheckoutState } from "./actions";
+import { track } from "@/lib/analytics";
+import { setZone } from "@/lib/zone-store";
+
+export function CheckoutForm({
+  zones, initialZoneId, initialCoupon, storeId, fulfillment, defaults,
+}: {
+  zones: ZoneOption[];
+  initialZoneId: string;
+  initialCoupon: string;
+  storeId: string;
+  fulfillment: "DELIVERY" | "PICKUP";
+  defaults: { name: string; phone: string; email: string };
+}) {
+  const lines = useCart();
+  const [zoneId, setZoneIdState] = useState(initialZoneId);
+  const setZoneId = (z: string) => { setZoneIdState(z); setZone(z); };
+  const [data, setData] = useState<CartQuoteResult | null>(null);
+  const [, startTransition] = useTransition();
+  const [state, action, pending] = useActionState<CheckoutState, FormData>(placeOrder, null);
+
+  const key = JSON.stringify([lines, zoneId]);
+  useEffect(() => {
+    if (!lines.length) return;
+    startTransition(async () => setData(await getCartQuote({ lines, zoneId: zoneId || null, storeId: storeId || null, fulfillment, couponCode: initialCoupon || null })));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  const begunValue = data?.quote?.subtotalKobo;
+  useEffect(() => {
+    if (begunValue != null) track("begin_checkout", { valueKobo: begunValue });
+  }, [begunValue != null]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The order page (with the seller's bank details) opens once the order is created.
+  useEffect(() => {
+    if (state?.ok) window.location.assign(state.url);
+  }, [state]);
+
+  if (!lines.length) {
+    return (
+      <div className="mt-6 card p-10 text-center">
+        <p className="text-lg font-semibold">Your cart is empty</p>
+        <Link href="/shop" className="btn-cta mt-6">Shop rice</Link>
+      </div>
+    );
+  }
+
+  const isPickup = fulfillment === "PICKUP";
+  const store = data?.fulfiller;
+  const q = data?.quote;
+  const redirecting = state?.ok === true;
+
+  return (
+    <form action={action} className="mt-6 grid gap-8 lg:grid-cols-[1fr_380px] items-start">
+      <input type="hidden" name="lines" value={JSON.stringify(lines)} />
+      <input type="hidden" name="coupon" value={initialCoupon} />
+      <input type="hidden" name="storeId" value={storeId} />
+      <input type="hidden" name="fulfillment" value={fulfillment} />
+
+      <div className="space-y-6">
+        <fieldset className="card p-5 sm:p-6">
+          <legend className="sr-only">Your details</legend>
+          <h2 className="font-display text-xl font-bold">Your details</h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <label className="block sm:col-span-2">
+              <span className="text-sm font-semibold">Full name</span>
+              <input name="name" required defaultValue={defaults.name} autoComplete="name" className="field" />
+            </label>
+            <label className="block">
+              <span className="text-sm font-semibold">Phone for delivery</span>
+              <input name="phone" type="tel" inputMode="tel" required defaultValue={defaults.phone} autoComplete="tel-national" className="field" />
+            </label>
+            <label className="block">
+              <span className="text-sm font-semibold">Email <span className="font-normal text-muted">(payment details and order updates go here)</span></span>
+              <input name="email" type="email" defaultValue={defaults.email} autoComplete="email" className="field" />
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset className="card p-5 sm:p-6">
+          <legend className="sr-only">{isPickup ? "Pickup" : "Delivery"}</legend>
+          <h2 className="font-display text-xl font-bold">{isPickup ? "Pickup" : "Delivery"}</h2>
+          <div className="mt-4 space-y-4">
+            <div>
+              <label htmlFor="zone" className="text-sm font-semibold">Your area</label>
+              <ZoneSelect zones={zones} value={zoneId} onChange={setZoneId} name="zoneId" required />
+              {!isPickup && data?.zone?.terms && <p className="mt-2 text-xs text-muted">{data.zone.terms}</p>}
+            </div>
+            {isPickup ? (
+              <p className="rounded-xl bg-brand-soft p-4 text-sm">
+                You&apos;ll collect your order from <strong>{store?.name ?? "the store"}</strong>{store?.address ? `, ${store.address}` : ""}{store?.hours ? ` (${store.hours})` : ""}. We&apos;ll email you when it&apos;s ready.
+              </p>
+            ) : (
+              <>
+                <label className="block">
+                  <span className="text-sm font-semibold">Street address</span>
+                  <textarea name="street" rows={2} required autoComplete="street-address" placeholder="House number, street, estate" className="field" />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-semibold">Nearest landmark <span className="font-normal text-muted">(helps our rider)</span></span>
+                  <input name="landmark" placeholder="e.g. opposite Wuse Market gate 2" className="field" />
+                </label>
+              </>
+            )}
+            <label className="block">
+              <span className="text-sm font-semibold">Note <span className="font-normal text-muted">(optional)</span></span>
+              <input name="note" maxLength={500} placeholder="e.g. call before arriving" className="field" />
+            </label>
+          </div>
+        </fieldset>
+      </div>
+
+      <aside aria-label="Order summary" className="card p-5 sm:p-6 lg:sticky lg:top-24 space-y-5">
+        <h2 className="font-display text-xl font-bold">Order summary</h2>
+        {store && (
+          <p className="-mt-3 text-sm text-muted">
+            {isPickup ? "Sold by" : "Sold and delivered by"} <strong className="text-foreground">{store.name}</strong>{" "}
+            <Link href="/cart" className="text-brand underline">Change</Link>
+          </p>
+        )}
+        {data?.storeMessage && <p role="alert" className="text-sm text-danger">{data.storeMessage}</p>}
+        <ul className="space-y-3">
+          {data?.lines.map((l) => (
+            <li key={l.variantId} className="flex items-center gap-3 text-sm">
+              <BagThumb sizeKg={l.sizeKg} src={l.imageUrl} />
+              <span className="flex-1">{l.qty} × {l.sizeKg}kg bag</span>
+              <span className="font-medium tabular-nums">{l.unitPriceKobo != null ? formatNaira(l.unitPriceKobo * l.qty) : "—"}</span>
+            </li>
+          ))}
+        </ul>
+        <OrderSummary quote={q ?? null} subtotalKobo={0} zoneChosen={!!zoneId} isPickup={isPickup} />
+
+        {zoneId && data && data.issues.length > 0 && (
+          <ul role="alert" className="rounded-xl bg-promo-soft p-3 text-sm space-y-1">{data.issues.map((m) => <li key={m}>{m}</li>)}</ul>
+        )}
+        {state && !state.ok && (
+          <ul role="alert" className="rounded-xl bg-promo-soft p-3 text-sm space-y-1">{state.errors.map((m) => <li key={m}>{m}</li>)}</ul>
+        )}
+
+        <button disabled={pending || redirecting || !q?.ok} className="btn-cta w-full text-lg">
+          {pending ? "Placing order…" : redirecting ? "Opening payment…" : q ? `Pay ${formatNaira(q.totalKobo)}` : "Pay"}
+        </button>
+        <p className="text-xs text-muted text-center">
+          Next you&apos;ll see the store&apos;s bank details to pay by transfer. Your bags are held for 3 hours while you pay.
+        </p>
+        <Link href="/cart" className="block text-center text-sm text-brand underline">Back to cart</Link>
+      </aside>
+    </form>
+  );
+}

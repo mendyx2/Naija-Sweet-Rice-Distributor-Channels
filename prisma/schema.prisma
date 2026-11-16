@@ -1,0 +1,785 @@
+// Naija Sweet Rice flagship store: database schema.
+// All money values are stored as integer KOBO (₦1 = 100 kobo) to avoid
+// floating-point rounding errors. Format for display with src/lib/money.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── People ─────────────────────────────────────────────────────────────────
+
+enum Role {
+  BUYER
+  SELLER
+  AFFILIATE
+  STAFF
+  OWNER
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  phone        String?  @unique // E.164, e.g. +2348012345678. Taken from the first order; not used to sign in
+  email        String?  @unique // lower-case; used to sign in (email code)
+  name         String?
+  passwordHash String?
+  roles        Role[]   @default([BUYER])
+  referralCode String   @unique
+  referredById String?
+  referredBy   User?    @relation("Referrals", fields: [referredById], references: [id])
+  referrals    User[]   @relation("Referrals")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sellerProfile     SellerProfile?
+  affiliateProfile  AffiliateProfile?
+  addresses         Address[]
+  orders            Order[]
+  coupons           Coupon[]
+  points            PointsTransaction[]
+  returnClaims      ReturnClaim[]
+  sessions          Session[]
+  telegramChats     TelegramChat[]
+  distributorMember DistributorMember?
+}
+
+/// Login session. The cookie holds a random token; only its SHA-256 hash is stored.
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  userAgent String?
+
+  @@index([userId])
+}
+
+/// One-time login codes sent by SMS. Only an HMAC of the code is stored.
+model OtpCode {
+  id         String    @id @default(cuid())
+  email      String
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  ipHash     String?
+  createdAt  DateTime  @default(now())
+
+  @@index([email, createdAt])
+}
+
+model SellerProfile {
+  userId       String         @id
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName String
+  cacNumber    String?
+  address      String
+  status       ApprovalStatus @default(PENDING)
+  createdAt    DateTime       @default(now())
+}
+
+/// Affiliates earn purchase points (redeemable for coupons). No cash, no wallet.
+model AffiliateProfile {
+  userId    String           @id
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code      String           @unique
+  status    ApprovalStatus   @default(PENDING)
+  createdAt DateTime         @default(now())
+  clicks    AffiliateClick[]
+  orders    Order[]
+}
+
+model AffiliateClick {
+  id          String           @id @default(cuid())
+  affiliateId String
+  affiliate   AffiliateProfile @relation(fields: [affiliateId], references: [userId], onDelete: Cascade)
+  productId   String?
+  ipHash      String
+  userAgent   String?
+  landingUrl  String
+  createdAt   DateTime         @default(now())
+
+  @@index([affiliateId, createdAt])
+}
+
+model Address {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  zoneId    String
+  zone      DeliveryZone @relation(fields: [zoneId], references: [id])
+  street    String
+  landmark  String?
+  phone     String
+  isDefault Boolean      @default(false)
+}
+
+// ─── Catalogue ──────────────────────────────────────────────────────────────
+
+model Product {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  name        String
+  description String
+  active      Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  variants    Variant[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+/// One row per bag size (50kg, 25kg, 5kg, 1kg).
+/// Prices are null until staff set them in /ops/prices. A variant without a
+/// retail price is shown as "Price coming soon" and cannot be bought.
+model Variant {
+  id                  String             @id @default(cuid())
+  productId           String
+  product             Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku                 String             @unique
+  sizeKg              Int
+  retailPriceKobo     Int?
+  wholesalePriceKobo  Int?
+  compareAtPriceKobo  Int? // "was" price for promotions
+  /// Range distributors must price within (set by HQ). Null = no limit on that side.
+  minRetailKobo       Int?
+  maxRetailKobo       Int?
+  /// What a distributor pays HQ per bag when restocking.
+  distributorCostKobo Int?
+  isSampleSize        Boolean            @default(false) // 1kg is the free-sample size
+  imageUrl            String? // product photo for this size; falls back to the 5kg photo
+  active              Boolean            @default(true)
+  updatedAt           DateTime           @updatedAt
+  priceChanges        PriceChange[]
+  orderItems          OrderItem[]
+  stocks              DistributorStock[]
+  distributorPrices   DistributorPrice[]
+  hqFees              HqFeeRate[]
+  stockMovements      StockMovement[]
+
+  @@unique([productId, sizeKg])
+}
+
+/// Audit trail of every price update made from /ops/prices.
+model PriceChange {
+  id        String   @id @default(cuid())
+  variantId String
+  variant   Variant  @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  field     String // retailPriceKobo | wholesalePriceKobo | compareAtPriceKobo
+  oldValue  Int?
+  newValue  Int?
+  changedBy String
+  createdAt DateTime @default(now())
+
+  @@index([variantId, createdAt])
+}
+
+// ─── Delivery ───────────────────────────────────────────────────────────────
+
+enum ZoneKind {
+  PICKUP // collect at the flagship store
+  ABUJA // core Abuja districts, no minimum order
+  NEARBY_TOWN // Suleja, Mararaba, Nyanya, ...: minimum order applies
+}
+
+model DeliveryZone {
+  id              String               @id @default(cuid())
+  slug            String               @unique
+  name            String
+  kind            ZoneKind
+  baseFeeKobo     Int                  @default(0)
+  perKgFeeKobo    Int                  @default(0)
+  /// Minimum order (MOQ) for this zone. Either or both may be set; null = none.
+  minOrderKg      Int?
+  minOrderKobo    Int?
+  etaHours        Int?
+  terms           String? // shown at checkout, e.g. "Delivery Tue & Fri only"
+  active          Boolean              @default(true)
+  sortOrder       Int                  @default(0)
+  /// The fee fields above are HQ's own delivery fees for the area. Other stores cover an area by
+  /// setting their own fee for it (DistributorZoneFee); several stores can serve the same area.
+  addresses       Address[]
+  orders          Order[]
+  distributorFees DistributorZoneFee[]
+  storesHere      Distributor[]        @relation("StoreHomeZone")
+}
+
+// ─── Orders ─────────────────────────────────────────────────────────────────
+
+enum OrderType {
+  STANDARD
+  SAMPLE // ₦0 product, customer pays delivery
+  REPLACEMENT // ₦0 replacement bag from an approved return claim
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  PROCESSING
+  READY_FOR_PICKUP
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED_DELIVERY
+  CANCELLED
+}
+
+model Order {
+  id              String            @id @default(cuid())
+  number          String            @unique // human-friendly, e.g. NSR-24A7K9
+  userId          String?
+  user            User?             @relation(fields: [userId], references: [id])
+  guestPhone      String?
+  contactPhone    String
+  contactEmail    String?
+  fulfillment     Fulfillment       @default(DELIVERY)
+  customerName    String
+  note            String?
+  reservedUntil   DateTime? // stock is held for unpaid orders until this time
+  type            OrderType         @default(STANDARD)
+  status          OrderStatus       @default(PENDING_PAYMENT)
+  subtotalKobo    Int
+  discountKobo    Int               @default(0)
+  deliveryFeeKobo Int
+  totalKobo       Int
+  zoneId          String
+  zone            DeliveryZone      @relation(fields: [zoneId], references: [id])
+  addressSnapshot Json
+  couponId        String?
+  coupon          Coupon?           @relation(fields: [couponId], references: [id])
+  referrerId      String?
+  affiliateId     String?
+  affiliate       AffiliateProfile? @relation(fields: [affiliateId], references: [userId])
+  utm             Json?
+  paymentRef      String?           @unique
+  paidAt          DateTime?
+  deliveredAt     DateTime?
+  parentOrderId   String? // set on REPLACEMENT orders
+  followUpSentAt  DateTime? // SAMPLE orders: "come back" coupon sent
+
+  // Distributor network
+  distributorId        String
+  distributor          Distributor   @relation(fields: [distributorId], references: [id])
+  routedToHq           Boolean       @default(false) // area's distributor couldn't fill it
+  hqFeeKobo            Int           @default(0) // HQ per-bag fee owed on this order
+  hqFundedDiscountKobo Int           @default(0) // HQ promo/points discount, credited to the distributor
+  paymentMethod        PaymentMethod @default(BANK_TRANSFER)
+  payTo                Json? // bank details shown to the customer (snapshot)
+  customerMarkedPaidAt DateTime?
+  paymentReminderAt    DateTime?
+  paymentEscalatedAt   DateTime?
+  paymentConfirmedAt   DateTime?
+  paymentConfirmedBy   String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  items        OrderItem[]
+  events       OrderStatusEvent[]
+  shipment     Shipment?
+  returnClaims ReturnClaim[]      @relation("ClaimOriginalOrder")
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@index([distributorId, status])
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  PAYSTACK
+  NONE // ₦0 orders (free pickup sample, replacement)
+}
+
+model OrderItem {
+  id            String  @id @default(cuid())
+  orderId       String
+  order         Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variantId     String
+  variant       Variant @relation(fields: [variantId], references: [id])
+  qty           Int
+  unitPriceKobo Int // price snapshot at time of purchase
+  sizeKg        Int // snapshot
+}
+
+model OrderStatusEvent {
+  id        String      @id @default(cuid())
+  orderId   String
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status    OrderStatus
+  note      String?
+  actor     String?
+  createdAt DateTime    @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+enum Carrier {
+  IN_HOUSE
+  KWIK
+  GIG
+}
+
+model Shipment {
+  id         String    @id @default(cuid())
+  orderId    String    @unique
+  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  carrier    Carrier   @default(IN_HOUSE)
+  trackingId String?
+  riderName  String?
+  riderPhone String?
+  eta        DateTime?
+}
+
+// ─── Rewards: purchase points → coupons (no wallet) ─────────────────────────
+
+enum CouponType {
+  PERCENT
+  FIXED
+}
+
+enum CouponSource {
+  PROMO
+  REFERRAL_REWARD
+  AFFILIATE_REWARD
+  POINTS_REDEMPTION
+  WINBACK
+  DISTRIBUTOR // a distributor's own code, funded by the distributor
+}
+
+model Coupon {
+  /// Set for a distributor's own code: only valid on that distributor's orders, funded by them.
+  distributorId   String?
+  distributor     Distributor? @relation(fields: [distributorId], references: [id])
+  id              String       @id @default(cuid())
+  code            String       @unique
+  type            CouponType
+  value           Int // percent (1-100) or kobo
+  maxDiscountKobo Int? // cap for percent coupons
+  minOrderKobo    Int          @default(0)
+  maxUses         Int          @default(1)
+  usedCount       Int          @default(0)
+  userId          String? // personal coupon if set
+  user            User?        @relation(fields: [userId], references: [id])
+  source          CouponSource
+  startsAt        DateTime     @default(now())
+  expiresAt       DateTime?
+  createdAt       DateTime     @default(now())
+  orders          Order[]
+}
+
+enum PointsReason {
+  PURCHASE
+  REFERRAL
+  AFFILIATE
+  REDEMPTION
+  EXPIRY
+  ADJUSTMENT
+}
+
+enum PointsStatus {
+  PENDING // order not yet past the return window
+  CONFIRMED
+  REVERSED
+}
+
+/// Append-only ledger. A user's balance = SUM(delta) WHERE status = CONFIRMED.
+model PointsTransaction {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id])
+  delta     Int
+  reason    PointsReason
+  status    PointsStatus @default(PENDING)
+  orderId   String?
+  couponId  String?
+  note      String?
+  createdAt DateTime     @default(now())
+
+  @@index([userId, status])
+}
+
+/// Editable reward settings (earn rates, redemption tiers), stored as JSON.
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Returns: bag replacement only ──────────────────────────────────────────
+
+enum ClaimStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REPLACEMENT_SCHEDULED
+  COMPLETED
+  REJECTED
+}
+
+enum ClaimReason {
+  TORN_BAG
+  TAMPERED
+  WATER_DAMAGED
+  UNDERWEIGHT
+  WRONG_SIZE
+}
+
+model ReturnClaim {
+  id                 String       @id @default(cuid())
+  orderId            String
+  order              Order        @relation("ClaimOriginalOrder", fields: [orderId], references: [id])
+  orderItemId        String
+  qty                Int          @default(1) // number of bags affected
+  userId             String
+  user               User         @relation(fields: [userId], references: [id])
+  reason             ClaimReason
+  description        String
+  photos             ClaimPhoto[]
+  status             ClaimStatus  @default(SUBMITTED)
+  resolutionNote     String?
+  replacementOrderId String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@index([orderId])
+  @@index([status])
+}
+
+/// Photos attached to a replacement claim. Re-encoded with sharp (metadata
+/// stripped) and stored in the database so no extra file storage is needed.
+model ClaimPhoto {
+  id        String      @id @default(cuid())
+  claimId   String
+  claim     ReturnClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  mime      String
+  data      Bytes
+  width     Int
+  height    Int
+  createdAt DateTime    @default(now())
+}
+
+/// One free sample per account AND per delivery address.
+model SampleClaim {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  addressKey String   @unique
+  orderId    String   @unique
+  createdAt  DateTime @default(now())
+}
+
+/// Promotions shown on /promotions, managed by staff in /ops/promotions.
+model Promotion {
+  id         String    @id @default(cuid())
+  title      String
+  body       String
+  badge      String?
+  couponCode String?
+  startsAt   DateTime  @default(now())
+  endsAt     DateTime?
+  active     Boolean   @default(true)
+  sortOrder  Int       @default(0)
+  createdAt  DateTime  @default(now())
+}
+
+// ─── Infrastructure ─────────────────────────────────────────────────────────
+
+model WebhookEvent {
+  id          String   @id @default(cuid())
+  provider    String
+  eventId     String
+  payload     Json
+  processedAt DateTime @default(now())
+
+  @@unique([provider, eventId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actor     String
+  action    String
+  entity    String
+  entityId  String
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+}
+
+// ─── Distributor network ────────────────────────────────────────────────────
+
+enum DistributorStatus {
+  PENDING // registered, waiting for HQ approval (store hidden from customers)
+  ACTIVE
+  SUSPENDED
+  REJECTED
+}
+
+enum Fulfillment {
+  DELIVERY
+  PICKUP // customer collects from the store's address
+}
+
+/// A distributor runs fulfilment for its areas and is paid directly by customers
+/// (bank transfer). HQ (the producer's flagship) is a distributor with isHq = true
+/// and serves every area as the fallback.
+model Distributor {
+  id                String            @id @default(cuid())
+  name              String
+  slug              String            @unique
+  isHq              Boolean           @default(false)
+  status            DistributorStatus @default(ACTIVE)
+  phone             String?
+  address           String?
+  /// The area the store's (one) shop is in: customers there can always choose it for pickup.
+  homeZoneId        String?
+  homeZone          DeliveryZone?     @relation("StoreHomeZone", fields: [homeZoneId], references: [id])
+  hours             String?
+  slaHours          Int               @default(4) // time to confirm a payment before HQ is alerted
+  /// Where staff alerts (new orders, payments, restocks, statements) are emailed. Optional.
+  alertEmail        String?
+  /// Bank details customers pay into. Only HQ can change them (logged, distributor alerted).
+  bankName          String?
+  accountNumber     String?
+  accountName       String?
+  bankUpdatedAt     DateTime?
+  /// Store takes part in HQ promotions and points coupons (HQ pays those discounts). HQ always does.
+  joinsHqPromotions Boolean           @default(false)
+  /// Customers can collect from the store's address.
+  pickupEnabled     Boolean           @default(true)
+  /// Self-registration details for HQ's review.
+  cacNumber         String?
+  approvedAt        DateTime?
+  approvedBy        String?
+  createdAt         DateTime          @default(now())
+
+  members     DistributorMember[]
+  zoneFees    DistributorZoneFee[]
+  prices      DistributorPrice[]
+  stock       DistributorStock[]
+  movements   StockMovement[]
+  orders      Order[]
+  walkInSales WalkInSale[]
+  restocks    RestockOrder[]
+  coupons     Coupon[]
+  statements  Statement[]
+}
+
+enum DistributorRole {
+  OWNER
+  STAFF
+}
+
+model DistributorMember {
+  userId        String          @id // a person belongs to at most one distributor
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  distributorId String
+  distributor   Distributor     @relation(fields: [distributorId], references: [id], onDelete: Cascade)
+  role          DistributorRole @default(STAFF)
+  createdAt     DateTime        @default(now())
+
+  @@index([distributorId])
+}
+
+/// A distributor's own delivery fee for an area it covers.
+model DistributorZoneFee {
+  distributorId String
+  distributor   Distributor  @relation(fields: [distributorId], references: [id], onDelete: Cascade)
+  zoneId        String
+  zone          DeliveryZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  baseFeeKobo   Int          @default(0)
+  perKgFeeKobo  Int          @default(0)
+  minOrderKg    Int?
+  minOrderKobo  Int?
+  etaHours      Int?
+  terms         String?
+  updatedAt     DateTime     @updatedAt
+
+  @@id([distributorId, zoneId])
+}
+
+/// A distributor's selling prices (must sit inside HQ's range on Variant).
+model DistributorPrice {
+  distributorId      String
+  distributor        Distributor @relation(fields: [distributorId], references: [id], onDelete: Cascade)
+  variantId          String
+  variant            Variant     @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  retailPriceKobo    Int?
+  wholesalePriceKobo Int?
+  updatedAt          DateTime    @updatedAt
+
+  @@id([distributorId, variantId])
+}
+
+/// HQ's fixed fee per bag sold online by a distributor. New rows apply from effectiveFrom; history is kept.
+model HqFeeRate {
+  id            String   @id @default(cuid())
+  variantId     String
+  variant       Variant  @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  feeKobo       Int
+  effectiveFrom DateTime @default(now())
+  setBy         String
+
+  @@index([variantId, effectiveFrom])
+}
+
+model DistributorStock {
+  distributorId String
+  distributor   Distributor @relation(fields: [distributorId], references: [id], onDelete: Cascade)
+  variantId     String
+  variant       Variant     @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  onHand        Int         @default(0)
+  held          Int         @default(0) // held for unpaid online orders
+  inTransit     Int         @default(0) // sent by HQ, not yet confirmed received
+  reorderPoint  Int?
+  updatedAt     DateTime    @updatedAt
+
+  @@id([distributorId, variantId])
+}
+
+enum StockMovementType {
+  OPENING_BALANCE
+  RESTOCK_SENT // HQ dispatched (in transit at the distributor, out of HQ)
+  RESTOCK_RECEIVED // distributor confirmed receipt
+  RESTOCK_SHORT // received less than sent
+  ONLINE_SALE
+  WALK_IN_SALE
+  SAMPLE
+  REPLACEMENT
+  ORDER_CANCELLED // stock returned from a cancelled paid order
+  DAMAGED
+  COUNT_ADJUSTMENT
+  MANUAL_SET // HQ set stock directly from /ops
+}
+
+enum MovementStatus {
+  APPLIED
+  PENDING_APPROVAL // damage / count corrections from distributors, approved by HQ
+  REJECTED
+}
+
+/// Append-only record of every stock change. Mirrored to the Google stock depletion sheet.
+model StockMovement {
+  id            String            @id @default(cuid())
+  distributorId String
+  distributor   Distributor       @relation(fields: [distributorId], references: [id])
+  variantId     String
+  variant       Variant           @relation(fields: [variantId], references: [id])
+  delta         Int // change to on-hand stock
+  transitDelta  Int               @default(0) // change to in-transit stock
+  onHandAfter   Int?
+  type          StockMovementType
+  status        MovementStatus    @default(APPLIED)
+  orderId       String?
+  walkInSaleId  String?
+  reference     String? // e.g. dispatch note number
+  actor         String
+  note          String?
+  createdAt     DateTime          @default(now())
+  sheetSyncedAt DateTime?
+
+  @@index([distributorId, createdAt])
+  @@index([status])
+  @@index([sheetSyncedAt])
+}
+
+model WalkInSale {
+  id            String      @id @default(cuid())
+  distributorId String
+  distributor   Distributor @relation(fields: [distributorId], references: [id])
+  lines         Json // [{ variantId, sizeKg, qty, unitPriceKobo }]
+  totalKobo     Int
+  paymentMethod String // cash / transfer / POS
+  createdBy     String
+  createdAt     DateTime    @default(now())
+
+  @@index([distributorId, createdAt])
+}
+
+enum RestockStatus {
+  REQUESTED // distributor asked for stock
+  INVOICED // HQ confirmed quantities and price; distributor to pay HQ
+  PAID // HQ confirmed the distributor's transfer
+  DISPATCHED // stock left HQ (in transit at the distributor)
+  RECEIVED // distributor confirmed receipt
+  CANCELLED
+}
+
+/// A distributor buying stock from HQ.
+model RestockOrder {
+  id            String        @id @default(cuid())
+  number        String        @unique // e.g. RS-7K2M9Q, used as the transfer narration
+  distributorId String
+  distributor   Distributor   @relation(fields: [distributorId], references: [id])
+  status        RestockStatus @default(REQUESTED)
+  /// [{ variantId, sizeKg, qty, unitCostKobo }]: bought bags
+  lines         Json
+  /// [{ variantId, sizeKg, qty }]: free bags HQ adds to replace samples/replacements given
+  freeLines     Json?
+  totalKobo     Int           @default(0)
+  note          String?
+  reference     String? // waybill / dispatch note
+  requestedBy   String
+  paidMarkedAt  DateTime? // distributor says they've paid HQ
+  invoicedAt    DateTime?
+  paidAt        DateTime?
+  dispatchedAt  DateTime?
+  receivedAt    DateTime?
+  cancelledAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([distributorId, status])
+  @@index([status])
+}
+
+enum StatementStatus {
+  OPEN // closed by HQ, awaiting settlement
+  SETTLED
+}
+
+/// A distributor's monthly statement with HQ, frozen when HQ closes the month.
+model Statement {
+  id              String          @id @default(cuid())
+  distributorId   String
+  distributor     Distributor     @relation(fields: [distributorId], references: [id])
+  month           String // "2026-11"
+  feesKobo        Int
+  creditsKobo     Int
+  netKobo         Int // positive = distributor owes HQ
+  bagsToReplace   Json
+  onlineOrders    Int
+  goodsOnlineKobo Int
+  shopTotalKobo   Int
+  status          StatementStatus @default(OPEN)
+  closedBy        String
+  closedAt        DateTime        @default(now())
+  settledAt       DateTime?
+  settledBy       String?
+  settleNote      String?
+
+  @@unique([distributorId, month])
+}
+
+/// A Telegram chat that receives staff alerts: a distributor team member's
+/// personal chat (userId set) or HQ's alert chat/group (isHq).
+model TelegramChat {
+  id       String   @id @default(cuid())
+  chatId   String   @unique
+  userId   String?
+  user     User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isHq     Boolean  @default(false)
+  title    String?
+  linkedAt DateTime @default(now())
+
+  @@index([userId])
+}
