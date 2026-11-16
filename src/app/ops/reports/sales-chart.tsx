@@ -59,7 +59,7 @@ export function SalesChart({ days }: { days: { day: string; salesKobo: number; o
               {/* Hit target: the whole column, bigger than the bar */}
               <rect
                 x={PAD_L + i * slot} y={PAD_T} width={slot} height={plotH} fill="transparent"
-                tabIndex={0} aria-label={`${dayLabel(d.day)}: ${formatNaira(d.salesKobo)}, ${d.orders} orders`}
+                role="img" tabIndex={0} aria-label={`${dayLabel(d.day)}: ${formatNaira(d.salesKobo)}, ${d.orders} orders`}
                 onPointerEnter={() => setHover(i)} onPointerLeave={() => setHover(null)}
                 onFocus={() => setHover(i)} onBlur={() => setHover(null)}
                 className="outline-none focus-visible:stroke-[var(--brand)]"

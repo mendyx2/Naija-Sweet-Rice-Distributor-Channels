@@ -17,7 +17,7 @@ const TONE: Record<OrderStatus, string> = {
   PROCESSING: "bg-brand-soft text-brand",
   READY_FOR_PICKUP: "bg-brand text-white",
   OUT_FOR_DELIVERY: "bg-brand text-white",
-  DELIVERED: "bg-success/15 text-success",
+  DELIVERED: "bg-success/15 text-brand-strong",
   FAILED_DELIVERY: "bg-promo-soft text-danger",
   CANCELLED: "bg-border text-muted",
 };

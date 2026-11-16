@@ -65,7 +65,7 @@ async function Account() {
           )}
           {progress.next && (
             <div className="mt-5">
-              <div className="h-2 rounded-full bg-white/20" role="progressbar" aria-valuemin={0} aria-valuemax={progress.next.points} aria-valuenow={points.confirmed}>
+              <div className="h-2 rounded-full bg-white/20" role="progressbar" aria-label="Points towards your next coupon" aria-valuemin={0} aria-valuemax={progress.next.points} aria-valuenow={points.confirmed}>
                 <div className="h-2 rounded-full bg-cta" style={{ width: `${Math.min(100, (points.confirmed / progress.next.points) * 100)}%` }} />
               </div>
               <p className="mt-2 text-sm text-white/85">

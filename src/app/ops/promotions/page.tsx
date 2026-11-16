@@ -41,7 +41,7 @@ async function Promotions() {
                     <p className="font-bold">{p.title} {p.badge && <span className="ml-1 rounded-full bg-promo px-2 py-0.5 text-xs text-white">{p.badge}</span>}</p>
                     <p className="text-sm text-muted">{d(p.startsAt)} → {d(p.endsAt)}</p>
                   </div>
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${live ? "bg-success/15 text-success" : "bg-border text-muted"}`}>
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${live ? "bg-success/15 text-brand-strong" : "bg-border text-muted"}`}>
                     {live ? "Live" : p.active ? "Scheduled / ended" : "Paused"}
                   </span>
                 </div>

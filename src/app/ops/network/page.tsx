@@ -69,7 +69,7 @@ async function Network() {
       </ul>
 
       <figure className="mt-4 rounded-2xl border border-border bg-surface overflow-x-auto">
-        <svg viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`} className="w-full min-w-[560px] h-auto" role="img"
+        <svg viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`} className="w-full min-w-[560px] h-auto" role="group"
           aria-label="Schematic map of Abuja delivery areas coloured by distributor. The same information is in the table below.">
           <text x={MAP_WIDTH - 20} y={40} textAnchor="end" fontSize={18} fill="#6b6b66">N ↑</text>
           {placed.map((z) => {

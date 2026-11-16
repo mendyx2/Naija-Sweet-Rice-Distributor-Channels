@@ -15,8 +15,8 @@ test("a Gwarinpa order goes to Gova Max, is paid into Gova's account and deliver
   await expect(page.getByText("₦84,000").first()).toBeVisible();
   await page.getByRole("button", { name: "Add to cart" }).click();
   await page.goto("/cart");
-  await expect(page.locator("aside")).toContainText("Delivered by Gova Max Ltd");
-  await expect(page.locator("aside dl")).toContainText("₦2,500"); // Gova's fee: ₦1,500 + ₦20 × 50kg
+  await expect(page.getByRole("complementary", { name: "Order summary" })).toContainText("Delivered by Gova Max Ltd");
+  await expect(page.getByRole("complementary", { name: "Order summary" }).locator("dl")).toContainText("₦2,500"); // Gova's fee: ₦1,500 + ₦20 × 50kg
   await page.getByRole("link", { name: "Checkout" }).click();
   await page.getByLabel("Full name").fill("Tunde Bakare");
   await page.getByLabel("Street address").fill("12 Road 3, Gwarinpa Estate");
@@ -59,8 +59,8 @@ test("ordering more than Gova holds sends the order to HQ", async ({ page }) => 
   for (let i = 0; i < 5; i++) await page.getByRole("button", { name: "Increase quantity" }).click(); // 6 bags; Gova has 4
   await page.getByRole("button", { name: "Add to cart" }).click();
   await page.goto("/cart");
-  await expect(page.locator("aside")).toContainText("Delivered by Naija Sweet Rice HQ");
-  await expect(page.locator("aside")).toContainText("HQ will deliver");
+  await expect(page.getByRole("complementary", { name: "Order summary" })).toContainText("Delivered by Naija Sweet Rice HQ");
+  await expect(page.getByRole("complementary", { name: "Order summary" })).toContainText("HQ will deliver");
 });
 
 test("a distributor's own promo code only works on its orders, with no HQ credit", async ({ page, browser }) => {
@@ -84,7 +84,7 @@ test("a distributor's own promo code only works on its orders, with no HQ credit
   await page.getByPlaceholder("Coupon code").fill(code.toLowerCase());
   await page.getByRole("button", { name: "Apply" }).click();
   await expect(page.getByText(`Coupon ${code} applied`)).toBeVisible();
-  await expect(page.locator("aside dl")).toContainText("−₦8,400");
+  await expect(page.getByRole("complementary", { name: "Order summary" }).locator("dl")).toContainText("−₦8,400");
   await page.locator("#zone").selectOption({ label: "Garki" });
   await expect(page.getByText("different seller")).toBeVisible();
   await page.locator("#zone").selectOption({ label: "Gwarinpa" });

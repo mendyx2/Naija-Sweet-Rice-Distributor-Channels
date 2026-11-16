@@ -51,7 +51,7 @@ async function Distributors() {
                       <p className="font-bold text-lg">{d.name} {d.isHq && <span className="ml-1 rounded-full bg-brand px-2 py-0.5 text-xs text-white">HQ</span>}</p>
                       <p className="text-sm text-muted">{[d.address, d.phone && formatNgPhone(d.phone)].filter(Boolean).join(" · ") || "No contact details yet"}</p>
                     </div>
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${d.status === "ACTIVE" ? "bg-success/15 text-success" : "bg-promo-soft text-danger"}`}>
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${d.status === "ACTIVE" ? "bg-success/15 text-brand-strong" : "bg-promo-soft text-danger"}`}>
                       {d.status === "ACTIVE" ? "Active" : "Suspended"}
                     </span>
                   </div>

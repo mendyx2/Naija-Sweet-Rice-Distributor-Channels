@@ -163,3 +163,16 @@ Fixed in this review:
 - Distributor, account, order and checkout pages are now sent with `Cache-Control: private, no-store`, like /ops already was.
 
 Known and accepted: `npm audit` reports a denial-of-service issue in `deepmerge-ts`, used only by the Prisma command-line tool to read its own config. Visitors can't reach it. The fix needs a major Prisma upgrade (6 → 7), which should be planned separately.
+
+## Accessibility and speed check (16 Nov 2026)
+
+A production build was scanned with axe (WCAG 2.1 AA) on a phone-sized screen: 14 public pages, the customer account, all /ops screens and the partner portal.
+
+Fixed:
+- The announcement bar was outside the page's landmark areas.
+- The points progress bar had no label.
+- The report chart's bars were labelled in a way screen readers ignore.
+- The green "Active"/"Live"/"Delivered" badges had too little contrast.
+- The network map hid its clickable areas from screen readers.
+
+After the fixes, no issues remain on any scanned page. Public pages load in about 0.6s locally and nothing scrolls sideways on a phone. Public pages are cached by the CDN, and signed-in pages are never cached.

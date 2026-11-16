@@ -116,7 +116,7 @@ export function CheckoutForm({
         </fieldset>
       </div>
 
-      <aside className="card p-5 sm:p-6 lg:sticky lg:top-24 space-y-5">
+      <aside aria-label="Order summary" className="card p-5 sm:p-6 lg:sticky lg:top-24 space-y-5">
         <h2 className="font-display text-xl font-bold">Order summary</h2>
         {data?.fulfiller && (
           <p className="-mt-3 text-sm text-muted">

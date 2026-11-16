@@ -96,7 +96,7 @@ export function CartView({ zones }: { zones: ZoneOption[] }) {
         {!data && <li className="p-6 text-muted">Loading your cart…</li>}
       </ul>
 
-      <aside className="card p-5 sm:p-6 lg:sticky lg:top-24 space-y-5">
+      <aside aria-label="Order summary" className="card p-5 sm:p-6 lg:sticky lg:top-24 space-y-5">
         <div>
           <label htmlFor="zone" className="text-sm font-semibold">Delivery area</label>
           <ZoneSelect zones={zones} value={zoneId} onChange={chooseZone} />

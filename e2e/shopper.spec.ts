@@ -13,7 +13,7 @@ test("order from an HQ area, sign in with an SMS code, pay by transfer, HQ confi
   await expect(page.getByRole("link", { name: /Cart, 1 item/ })).toBeVisible();
 
   await page.goto("/cart");
-  await expect(page.locator("aside")).toContainText("Delivered by Naija Sweet Rice HQ");
+  await expect(page.getByRole("complementary", { name: "Order summary" })).toContainText("Delivered by Naija Sweet Rice HQ");
   await page.getByRole("link", { name: "Checkout" }).click();
   const phone = newPhone();
   await loginWithCode(page, phone);

@@ -16,9 +16,9 @@ export async function SiteHeader() {
   const zones = (await getZones()).map((z) => ({ id: z.id, name: z.name, kind: z.kind }));
   return (
     <>
-      <p className="bg-brand-strong text-white/90 text-xs sm:text-sm text-center px-4 py-2">
+      <aside aria-label="Delivery notice" className="bg-brand-strong text-white/90 text-xs sm:text-sm text-center px-4 py-2">
         Delivery across Abuja &amp; nearby towns · <span className="text-cta font-semibold">Free pickup</span> at our flagship store
-      </p>
+      </aside>
       {/* Only the logo / account / cart row stays pinned, to leave room for content on phones. */}
       <header className="sticky top-0 z-30 border-b border-border bg-surface/95 backdrop-blur">
         <div className="mx-auto max-w-6xl px-3 sm:px-4 h-16 flex items-center justify-between gap-2 sm:gap-4">
