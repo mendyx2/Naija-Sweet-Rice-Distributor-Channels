@@ -61,18 +61,20 @@ export async function getHq(): Promise<Distributor> {
 }
 
 /**
- * Every approved store a customer in this area can buy from: HQ (if it delivers
- * there) and each distributor that has set a delivery fee for the area.
+ * Every approved store a customer in this area can buy from: HQ (it delivers to
+ * every open area), each distributor that has set a delivery fee for the area,
+ * and any store whose shop is in the area and offers pickup.
  * Sorted for the chosen size; see sortStores.
  */
 export async function storesForZone(zoneId: string | null, variantId?: string | null): Promise<{ zone: DeliveryZone | null; stores: Offer[] }> {
   const zone = zoneId ? await db.deliveryZone.findUnique({ where: { id: zoneId } }) : null;
   if (!zone || !zone.active) return { zone, stores: [] };
   const ds = await db.distributor.findMany({
-    where: { status: "ACTIVE", OR: [{ isHq: true }, { zoneFees: { some: { zoneId: zone.id } } }] },
+    where: { status: "ACTIVE", OR: [{ isHq: true }, { zoneFees: { some: { zoneId: zone.id } } }, { homeZoneId: zone.id, pickupEnabled: true }] },
   });
+  const homeHere = new Set(ds.filter((d) => d.homeZoneId === zone.id).map((d) => d.id));
   const offers = await Promise.all(ds.map((d) => buildOffer(d, zone)));
-  return { zone, stores: sortStores(offers.filter((o) => o.ready && o.fee), variantId) };
+  return { zone, stores: sortStores(offers.filter((o) => o.ready && (o.fee || (o.pickup && homeHere.has(o.distributorId)))), variantId) };
 }
 
 /** One store's offer for an area (fee is null if it doesn't deliver there). */

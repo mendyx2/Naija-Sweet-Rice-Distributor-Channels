@@ -42,6 +42,7 @@ async function Distributor({ params }: Pick<PageProps<"/ops/distributors/[id]">,
     db.stockMovement.findMany({ where: { distributorId: id, status: "PENDING_APPROVAL" }, include: { variant: true }, orderBy: { createdAt: "asc" } }),
     db.stockMovement.findMany({ where: { distributorId: id }, include: { variant: true }, orderBy: { createdAt: "desc" }, take: 25 }),
   ]);
+  const areas = zones.filter((z) => z.active);
   const stock = [...d.stock].sort((a, b) => b.variant.sizeKg - a.variant.sizeKg);
   const month = d.isHq ? null : await distributorMonth(d.id, currentMonth());
 
@@ -91,7 +92,14 @@ async function Distributor({ params }: Pick<PageProps<"/ops/distributors/[id]">,
             <input type="hidden" name="id" value={d.id} />
             <label className="block"><span className="font-semibold">Business name</span><input name="name" defaultValue={d.name} required className="field" /></label>
             <label className="block"><span className="font-semibold">Phone (shown to customers)</span><input name="phone" type="tel" defaultValue={d.phone ? formatNgPhone(d.phone) : ""} className="field" /></label>
-            <label className="block"><span className="font-semibold">Address</span><input name="address" defaultValue={d.address ?? ""} className="field" /></label>
+            <label className="block"><span className="font-semibold">Shop address</span><input name="address" defaultValue={d.address ?? ""} className="field" /></label>
+            <label className="block"><span className="font-semibold">Area the shop is in</span>
+              <select name="homeZoneId" defaultValue={d.homeZoneId ?? ""} className="field">
+                <option value="">Not set</option>
+                {areas.map((z) => <option key={z.id} value={z.id}>{z.name}</option>)}
+              </select>
+              <span className="text-xs text-muted">Customers in this area can always choose the shop for pickup.</span>
+            </label>
             <label className="block"><span className="font-semibold">Opening hours</span><input name="hours" defaultValue={d.hours ?? ""} className="field" /></label>
             {!d.isHq && (
               <label className="block"><span className="font-semibold">Alert email <span className="font-normal text-muted">(new orders, payments, stock; optional)</span></span>

@@ -152,7 +152,7 @@ test("pickup from Gova's shop: no delivery fee, no address, collected at Kaura m
   await page.getByRole("button", { name: "Add to cart" }).click();
   await page.goto("/cart");
   await page.getByRole("radio", { name: "Pickup (free)" }).click();
-  await expect(page.getByText("Collect from Gova Max Ltd, Kaura Internal Market")).toBeVisible();
+  await expect(page.getByText("Collect from Gova Max Ltd, Kaura International Market")).toBeVisible();
   await page.getByRole("link", { name: "Checkout" }).click();
   await expect(page.getByLabel("Street address")).toHaveCount(0);
   await page.getByLabel("Full name").fill("Halima Bello");
@@ -160,7 +160,25 @@ test("pickup from Gova's shop: no delivery fee, no address, collected at Kaura m
   await page.waitForURL(/\/orders\/NSR-/);
   const order = await db.order.findUniqueOrThrow({ where: { number: page.url().split("/").pop()! } });
   expect(order).toMatchObject({ fulfillment: "PICKUP", deliveryFeeKobo: 0, totalKobo: 8_400_000 });
-  await expect(page.getByText("Kaura Internal Market, Abuja FCT")).toBeVisible();
+  await expect(page.getByText("Kaura International Market, Abuja FCT")).toBeVisible();
+});
+
+test("customers in Kaura see Gova's shop for pickup, even though Gova doesn't deliver there", async ({ page }) => {
+  await signInAs(page.context(), newEmail());
+  await page.goto("/");
+  await chooseArea(page, await zoneId("Kaura"));
+  await page.goto("/p/naija-sweet-rice?size=50");
+  const gova = store(page, /Gova Max Ltd/);
+  await expect(gova).toContainText("Kaura International Market, Abuja FCT");
+  await expect(gova).toContainText("No delivery to this area");
+  await expect(gova).toContainText("Free pickup");
+  await gova.click();
+  await page.getByRole("button", { name: "Add to cart" }).click();
+  await page.goto("/cart");
+  // Delivery isn't possible from Gova here, so pickup is chosen for the customer.
+  await expect(page.getByRole("radio", { name: "Pickup (free)" })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByRole("radio", { name: "Delivery", exact: true })).toBeDisabled();
+  await expect(page.getByRole("link", { name: "Checkout" })).toBeVisible();
 });
 
 test("stock: HQ records bags delivered to Gova, Gova confirms what arrived", async ({ browser }) => {

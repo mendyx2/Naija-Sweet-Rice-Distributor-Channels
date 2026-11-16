@@ -20,7 +20,7 @@ const SIZES = [
 const ABUJA_AREAS = [
   "Wuse", "Wuse II", "Garki", "Maitama", "Asokoro", "Central Area", "Jabi", "Utako", "Wuye", "Jahi",
   "Katampe", "Gwarinpa", "Life Camp", "Kado", "Dawaki", "Kubwa", "Lugbe", "Apo", "Gudu", "Durumi",
-  "Lokogoma", "Galadimawa", "Gwagwalada", "Airport Road",
+  "Lokogoma", "Galadimawa", "Gwagwalada", "Airport Road", "Kaura",
 ];
 
 /** Nearby towns: delivery subject to a minimum order (MOQ). */
@@ -71,7 +71,7 @@ async function main() {
   await db.distributor.upsert({
     where: { slug: "gova-max-ltd" },
     update: {},
-    create: { name: "Gova Max Ltd", slug: "gova-max-ltd", address: "Kaura Internal Market, Abuja FCT" },
+    create: { name: "Gova Max Ltd", slug: "gova-max-ltd", address: "Kaura International Market, Abuja FCT" },
   });
   const variants = await db.variant.findMany({ where: { productId: product.id } });
   for (const d of await db.distributor.findMany()) {
@@ -100,6 +100,14 @@ async function main() {
       create: { slug: slugify(z.name), sortOrder: order++, ...z },
     });
   }
+
+  // Each store has one shop; customers in its area can always pick up there.
+  const home = async (slug: string, zoneSlug: string) => {
+    const z = await db.deliveryZone.findUnique({ where: { slug: zoneSlug } });
+    if (z) await db.distributor.updateMany({ where: { slug, homeZoneId: null }, data: { homeZoneId: z.id } });
+  };
+  await home("hq", "wuse-ii");
+  await home("gova-max-ltd", "kaura");
 
   console.log(`Seeded ${SIZES.length} bag sizes and ${zones.length} delivery zones.`);
 }

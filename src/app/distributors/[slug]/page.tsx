@@ -20,7 +20,7 @@ async function find(slug: string) {
 export async function generateMetadata({ params }: PageProps<"/distributors/[slug]">): Promise<Metadata> {
   const d = await find((await params).slug);
   if (!d) return {};
-  const areas = d.zones.map((z) => z.name).join(", ");
+  const areas = d.zones.map((z) => z.name).join(", ") || d.home?.name || "Abuja";
   return {
     title: `${d.name}: authorised ${site.name} store, ${areas}`,
     description: `Buy ${site.name} from ${d.name}, an authorised store delivering to ${areas}, Abuja. Order online for delivery${d.pickup ? " or pickup" : ""}.`,
@@ -48,18 +48,21 @@ async function Distributor({ params }: Pick<PageProps<"/distributors/[slug]">, "
       </p>
       <h1 className="font-display text-4xl sm:text-5xl font-bold mt-3">{d.name}</h1>
       <dl className="mt-6 grid gap-3 sm:grid-cols-3 text-sm">
-        {d.address && <div className="card p-4"><dt className="text-muted">Shop</dt><dd className="mt-1 font-semibold">{d.address}</dd></div>}
+        {d.address && <div className="card p-4"><dt className="text-muted">Shop{d.pickup ? " (free pickup)" : ""}</dt><dd className="mt-1 font-semibold">{d.address}</dd>{d.home && <dd className="text-sm text-muted">{d.home.name}</dd>}</div>}
         {d.hours && <div className="card p-4"><dt className="text-muted">Opening hours</dt><dd className="mt-1 font-semibold">{d.hours}</dd></div>}
         {d.phone && <div className="card p-4"><dt className="text-muted">Phone</dt><dd className="mt-1 font-semibold"><a className="underline" href={`tel:${d.phone}`}>{formatNgPhone(d.phone)}</a></dd></div>}
       </dl>
       <section className="mt-10">
-        <h2 className="font-display text-2xl font-bold">Delivers to</h2>
-        <p className="mt-1 text-muted">Choose your area to shop with {d.name}: prices, stock and delivery fees are theirs.</p>
-        <ShopHere storeId={d.id} zones={d.zones.map((z) => ({ id: z.id, name: z.name }))} />
-        <p className="mt-4 text-sm text-muted">
+        <h2 className="font-display text-2xl font-bold">Shop with {d.name}</h2>
+        <p className="mt-1 text-muted">
+          {d.zones.length ? `Delivers to ${d.zones.map((z) => z.name).join(", ")}` : "Pickup only for now"}{d.pickup && d.zones.length ? ", or collect free from the shop" : ""}.
+          Choose your area to see their prices and stock.
+        </p>
+        <ShopHere storeId={d.id} zones={(d.zones.some((z) => z.id === d.home?.id) || !d.home || !d.pickup ? d.zones : [d.home, ...d.zones]).map((z) => ({ id: z.id, name: z.name }))} />
+        {d.zones.length > 0 && <p className="mt-4 text-sm text-muted">
           Delivery details per area:{" "}
           {d.zones.map((z, i) => <span key={z.id}>{i ? ", " : ""}<Link href={`/delivery/${z.slug}`} className="underline">{z.name}</Link></span>)}
-        </p>
+        </p>}
       </section>
     </div>
   );

@@ -13,6 +13,7 @@ test("a distributor opens a store; it stays hidden until HQ approves it and adds
   await page.getByLabel("Business name").fill(name);
   await page.getByLabel("Phone").fill("0803 555 0101");
   await page.getByLabel("Shop address").fill("Shop 12, Utako Market, Abuja");
+  await page.getByLabel("Area your shop is in").selectOption({ label: "Utako" });
   await page.getByLabel("Bank", { exact: true }).fill("Access Bank");
   await page.getByLabel("Account number").fill("0691234567");
   await page.getByLabel("Account name").fill("Rice Hub Ventures");

@@ -63,7 +63,14 @@ async function Join() {
             <label className="block"><span className="font-semibold">Phone</span><input name="phone" type="tel" required defaultValue={user.phone ? formatNgPhone(user.phone) : ""} className="field" /></label>
             <label className="block"><span className="font-semibold">CAC number <span className="font-normal text-muted">(optional)</span></span><input name="cacNumber" maxLength={20} className="field" /></label>
           </div>
+          <p className="text-muted">One store per distributor: the shop customers collect from.</p>
           <label className="block"><span className="font-semibold">Shop address</span><textarea name="address" rows={2} required maxLength={200} placeholder="Shop number, market or street, area" className="field" /></label>
+          <label className="block"><span className="font-semibold">Area your shop is in</span>
+            <select name="homeZoneId" required defaultValue="" className="field">
+              <option value="" disabled>Choose…</option>
+              {zones.map((z) => <option key={z.id} value={z.id}>{z.name}</option>)}
+            </select>
+          </label>
           <label className="block"><span className="font-semibold">Opening hours <span className="font-normal text-muted">(optional)</span></span><input name="hours" maxLength={80} placeholder="e.g. Mon–Sat 8am–6pm" className="field" /></label>
         </fieldset>
 

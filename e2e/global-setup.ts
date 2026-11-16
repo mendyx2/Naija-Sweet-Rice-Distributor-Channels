@@ -49,7 +49,8 @@ export default async function globalSetup() {
     where: { slug: "gova-max-ltd" },
     data: {
       status: "ACTIVE", phone: "+2348120004444", bankName: "GTBank", accountNumber: "0234567891", accountName: "Gova Max Ltd",
-      address: "Kaura Internal Market, Abuja FCT", pickupEnabled: true, joinsHqPromotions: false,
+      address: "Kaura International Market, Abuja FCT", pickupEnabled: true, joinsHqPromotions: false,
+      homeZone: { connect: { slug: "kaura" } },
     },
   });
   const govaAreas = await db.deliveryZone.findMany({ where: { name: { in: ["Gwarinpa", "Kubwa"] } } });

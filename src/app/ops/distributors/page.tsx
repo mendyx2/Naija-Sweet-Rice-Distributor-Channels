@@ -23,7 +23,11 @@ async function Distributors() {
       orders: { where: { status: "PENDING_PAYMENT", customerMarkedPaidAt: { not: null } }, select: { id: true } },
     },
   });
-  const [hqChats, links] = await Promise.all([db.telegramChat.findMany({ where: { isHq: true } }), telegramLinks("hq")]);
+  const [hqChats, links, areas] = await Promise.all([
+    db.telegramChat.findMany({ where: { isHq: true } }),
+    telegramLinks("hq"),
+    db.deliveryZone.findMany({ where: { active: true, kind: { not: "PICKUP" } }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
+  ]);
   const pendingAdjustments = await db.stockMovement.groupBy({ by: ["distributorId"], where: { status: "PENDING_APPROVAL" }, _count: true });
   const adj = new Map(pendingAdjustments.map((a) => [a.distributorId, a._count]));
 
@@ -105,7 +109,14 @@ async function Distributors() {
           <ActionForm action={createDistributor} submit="Add distributor" className="mt-3 space-y-3 text-sm">
             <label className="block"><span className="font-semibold">Business name</span><input name="name" required className="field" /></label>
             <label className="block"><span className="font-semibold">Phone</span><input name="phone" type="tel" className="field" /></label>
-            <label className="block"><span className="font-semibold">Address</span><input name="address" className="field" /></label>
+            <label className="block"><span className="font-semibold">Shop address</span><input name="address" className="field" /></label>
+            <label className="block"><span className="font-semibold">Area the shop is in</span>
+              <select name="homeZoneId" defaultValue={""} className="field">
+                <option value="">Not set</option>
+                {areas.map((z) => <option key={z.id} value={z.id}>{z.name}</option>)}
+              </select>
+              <span className="text-xs text-muted">Customers in this area can always choose the shop for pickup.</span>
+            </label>
             <label className="block"><span className="font-semibold">Opening hours</span><input name="hours" placeholder="Mon–Sat, 8am–6pm" className="field" /></label>
           </ActionForm>
         </section>

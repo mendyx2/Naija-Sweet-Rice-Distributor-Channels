@@ -19,6 +19,7 @@ const schema = z.object({
   name: z.string().trim().min(3, "Enter your business name.").max(80),
   cacNumber: z.string().trim().max(20).optional(),
   address: z.string().trim().min(8, "Enter your shop address (customers who pick up go here).").max(200),
+  homeZoneId: z.string().min(1, "Choose the area your shop is in.").max(40),
   phone: z.string().trim().max(30),
   hours: z.string().trim().max(80).optional(),
   bankName: z.string().trim().min(2, "Enter the bank name.").max(60),
@@ -59,6 +60,9 @@ export async function openStore(_prev: JoinState, formData: FormData): Promise<J
   const zones = await db.deliveryZone.findMany({ where: { id: { in: zoneIds }, active: true, kind: { not: "PICKUP" } } });
   if (!zones.length && !pickup) return { ok: false, message: "Choose at least one area you deliver to, or offer pickup." };
 
+  const home = await db.deliveryZone.findUnique({ where: { id: f.homeZoneId } });
+  if (!home || !home.active || home.kind === "PICKUP") return { ok: false, message: "Choose the area your shop is in." };
+
   let slug = slugify(f.name) || "store";
   if (await db.distributor.findUnique({ where: { slug } })) slug = `${slug}-${Date.now().toString(36).slice(-4)}`;
   const variants = await db.variant.findMany({ select: { id: true } });
@@ -66,7 +70,7 @@ export async function openStore(_prev: JoinState, formData: FormData): Promise<J
   const d = await db.$transaction(async (tx) => {
     const store = await tx.distributor.create({
       data: {
-        name: f.name, slug, status: "PENDING", phone, address: f.address, hours: f.hours || null, cacNumber: f.cacNumber || null,
+        name: f.name, slug, status: "PENDING", phone, address: f.address, homeZoneId: home.id, hours: f.hours || null, cacNumber: f.cacNumber || null,
         bankName: f.bankName, accountNumber: f.accountNumber, accountName: f.accountName, bankUpdatedAt: new Date(),
         pickupEnabled: pickup, joinsHqPromotions: !!formData.get("hqPromotions"), alertEmail: user.email,
       },

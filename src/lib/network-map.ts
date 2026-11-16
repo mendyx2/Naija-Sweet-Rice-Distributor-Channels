@@ -17,6 +17,7 @@ export const ZONE_POSITIONS: Record<string, { x: number; y: number }> = {
   wuye: { x: 500, y: 460 }, "central-area": { x: 680, y: 460 }, asokoro: { x: 830, y: 480 },
   durumi: { x: 560, y: 530 }, garki: { x: 720, y: 530 },
   galadimawa: { x: 470, y: 600 }, gudu: { x: 610, y: 600 }, apo: { x: 750, y: 600 },
+  kaura: { x: 690, y: 665 },
   "airport-road": { x: 180, y: 620 }, lugbe: { x: 300, y: 670 }, lokogoma: { x: 560, y: 680 },
   gwagwalada: { x: 70, y: 560 },
   // Nearby towns (minimum order applies)

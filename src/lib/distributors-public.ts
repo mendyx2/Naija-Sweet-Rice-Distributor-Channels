@@ -5,18 +5,18 @@ import { db } from "./db";
 import { TAGS } from "./catalogue";
 import { site } from "./site";
 
-/** Stores shown publicly: approved distributors that deliver to at least one area. */
+/** Stores shown publicly: approved distributors that deliver to at least one area, or offer pickup at their shop. */
 export async function getPublicDistributors() {
   "use cache";
   cacheLife("hours");
   cacheTag(TAGS.zones);
   const list = await db.distributor.findMany({
-    where: { isHq: false, status: "ACTIVE", zoneFees: { some: { zone: { active: true } } } },
+    where: { isHq: false, status: "ACTIVE", OR: [{ zoneFees: { some: { zone: { active: true } } } }, { pickupEnabled: true, homeZoneId: { not: null } }] },
     orderBy: { name: "asc" },
-    include: { zoneFees: { where: { zone: { active: true } }, include: { zone: { select: { id: true, slug: true, name: true, sortOrder: true } } } } },
+    include: { homeZone: { select: { id: true, slug: true, name: true } }, zoneFees: { where: { zone: { active: true } }, include: { zone: { select: { id: true, slug: true, name: true, sortOrder: true } } } } },
   });
   return list.map((d) => ({
-    id: d.id, slug: d.slug, name: d.name, address: d.address, hours: d.hours, phone: d.phone, pickup: d.pickupEnabled,
+    id: d.id, slug: d.slug, name: d.name, address: d.address, hours: d.hours, phone: d.phone, pickup: d.pickupEnabled, home: d.homeZone,
     zones: d.zoneFees.map((f) => f.zone).sort((a, b) => a.sortOrder - b.sortOrder).map(({ id, slug, name }) => ({ id, slug, name })),
   }));
 }

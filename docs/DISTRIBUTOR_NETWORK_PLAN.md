@@ -196,7 +196,7 @@ DemandSignal       zone/area, phone?, createdAt
 
 ## 11. Progress (13 Nov 2026)
 
-Confirmed: HQ also uses bank transfer, the per-bag fee is set per bag size, 3-hour payment hold, monthly statements, first distributor **Gova Max Ltd** (Kaura Internal Market, Abuja FCT). Google account for the sheet: to be added later.
+Confirmed: HQ also uses bank transfer, the per-bag fee is set per bag size, 3-hour payment hold, monthly statements, first distributor **Gova Max Ltd** (one shop: Kaura International Market, Abuja FCT, in the new Kaura area). Google account for the sheet: to be added later.
 
 **Built and tested end to end**
 - **D1:** distributors (HQ is one), logins with owner/staff roles, one distributor per area, price range and per-bag HQ fee per size (with history), per-distributor prices, delivery fees and stock, and a stock movement history. Existing stock and orders moved to HQ.
@@ -259,3 +259,4 @@ Confirmed by the business, replacing "one distributor per area" and the automati
 - **Promotions are opt-in.** HQ promo codes and points coupons work at HQ and at stores that tick **Take part in Naija Sweet Rice promotions**. HQ pays those discounts and credits them on the monthly statement. A store's own codes work only at that store. Stores that existed before this change were kept in HQ promotions; new stores start outside them.
 - **Unchanged:** prices within HQ's range, the HQ per-bag fee on online sales, monthly statements, the 3-hour payment hold, replacements and samples (now from the chosen store, delivered or picked up).
 - **Network map:** each area is shaded by how many stores deliver there besides HQ.
+- **One shop per store.** Each store has one shop and records the area it's in. Customers in that area always see the store for pickup, even if it doesn't deliver there. Gova Max Ltd's shop is at Kaura International Market, Abuja FCT. Kaura was added as a delivery area (HQ's fee starts as Durumi's).

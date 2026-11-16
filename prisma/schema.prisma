@@ -212,6 +212,7 @@ model DeliveryZone {
   addresses       Address[]
   orders          Order[]
   distributorFees DistributorZoneFee[]
+  storesHere      Distributor[]        @relation("StoreHomeZone")
 }
 
 // ─── Orders ─────────────────────────────────────────────────────────────────
@@ -539,6 +540,9 @@ model Distributor {
   status            DistributorStatus @default(ACTIVE)
   phone             String?
   address           String?
+  /// The area the store's (one) shop is in: customers there can always choose it for pickup.
+  homeZoneId        String?
+  homeZone          DeliveryZone?     @relation("StoreHomeZone", fields: [homeZoneId], references: [id])
   hours             String?
   slaHours          Int               @default(4) // time to confirm a payment before HQ is alerted
   /// Where staff alerts (new orders, payments, restocks, statements) are emailed. Optional.

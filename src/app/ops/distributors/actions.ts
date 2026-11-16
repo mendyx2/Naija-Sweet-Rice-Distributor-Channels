@@ -24,7 +24,15 @@ const details = z.object({
   phone: z.string().trim().max(30).optional(),
   address: z.string().trim().max(300).optional(),
   hours: z.string().trim().max(120).optional(),
+  homeZoneId: z.string().max(40).optional(),
 });
+
+/** The area a store's shop is in (must be an open delivery area), or null. */
+async function homeZone(id: string | undefined): Promise<string | null> {
+  if (!id) return null;
+  const z = await db.deliveryZone.findUnique({ where: { id } });
+  return z && z.active && z.kind !== "PICKUP" ? z.id : null;
+}
 
 export async function createDistributor(_prev: FormState, formData: FormData): Promise<FormState> {
   const actor = await requireOps();
@@ -35,7 +43,7 @@ export async function createDistributor(_prev: FormState, formData: FormData): P
   if (f.phone && !phone) return { ok: false, message: "Enter a valid Nigerian phone number." };
   let slug = slugify(f.name) || "distributor";
   if (await db.distributor.findUnique({ where: { slug } })) slug = `${slug}-${Date.now().toString(36).slice(-4)}`;
-  const d = await db.distributor.create({ data: { name: f.name, slug, phone, address: f.address || null, hours: f.hours || null } });
+  const d = await db.distributor.create({ data: { name: f.name, slug, phone, address: f.address || null, hours: f.hours || null, homeZoneId: await homeZone(f.homeZoneId) } });
   const variants = await db.variant.findMany({ select: { id: true } });
   await db.distributorStock.createMany({ data: variants.map((v) => ({ distributorId: d.id, variantId: v.id })), skipDuplicates: true });
   await db.auditLog.create({ data: { actor, action: "distributor.create", entity: "Distributor", entityId: d.id, after: { name: d.name } } });
@@ -59,7 +67,7 @@ export async function updateDistributor(_prev: FormState, formData: FormData): P
   if (before.isHq && f.status === "SUSPENDED") return { ok: false, message: "HQ can't be suspended." };
   // A store waiting for approval (or not approved) only changes status through approveStore/rejectStore.
   const status = before.status === "PENDING" || before.status === "REJECTED" ? before.status : f.status;
-  const after = { name: f.name, phone, address: f.address || null, hours: f.hours || null, slaHours: f.slaHours, status, alertEmail: f.alertEmail?.toLowerCase() || null };
+  const after = { name: f.name, phone, address: f.address || null, hours: f.hours || null, homeZoneId: await homeZone(f.homeZoneId), slaHours: f.slaHours, status, alertEmail: f.alertEmail?.toLowerCase() || null };
   await db.$transaction([
     db.distributor.update({ where: { id }, data: after }),
     db.auditLog.create({ data: { actor, action: "distributor.update", entity: "Distributor", entityId: id, before: { status: before.status, name: before.name }, after } }),
