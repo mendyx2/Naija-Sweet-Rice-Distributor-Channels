@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { db, zoneId } from "./db";
-import { acceptDialogs, chooseArea, loginWithCode, newPhone, signInAs } from "./helpers";
+import { HQ_OWNER, acceptDialogs, chooseArea, loginWithCode, newEmail, newPhone, signInAs } from "./helpers";
 
-test("order from an HQ area, sign in with an SMS code, pay by transfer, HQ confirms", async ({ page, browser }) => {
+test("order from an HQ area, sign in with an email code, pay by transfer, HQ confirms", async ({ page, browser }) => {
   await page.context().addInitScript(() => localStorage.setItem("nsr_consent", "denied"));
   await page.goto("/");
   await chooseArea(page, await zoneId("Garki"));
@@ -15,9 +15,10 @@ test("order from an HQ area, sign in with an SMS code, pay by transfer, HQ confi
   await page.goto("/cart");
   await expect(page.getByRole("complementary", { name: "Order summary" })).toContainText("Delivered by Naija Sweet Rice HQ");
   await page.getByRole("link", { name: "Checkout" }).click();
-  const phone = newPhone();
-  await loginWithCode(page, phone);
+  const email = newEmail();
+  await loginWithCode(page, email);
   await page.getByLabel("Full name").fill("Ngozi Eze");
+  await page.getByLabel("Phone for delivery").fill(newPhone()); // new accounts have no phone yet
   await page.getByLabel("Street address").fill("14 Ahmadu Bello Way, Garki");
   await page.getByRole("button", { name: /^Pay ₦/ }).click();
 
@@ -30,7 +31,7 @@ test("order from an HQ area, sign in with an SMS code, pay by transfer, HQ confi
   await expect(page.getByText("Waiting for the seller to confirm")).toBeVisible();
 
   const hq = await browser.newContext();
-  await signInAs(hq, "08011112222");
+  await signInAs(hq, HQ_OWNER);
   const ops = await hq.newPage();
   acceptDialogs(ops);
   await ops.goto("/ops/orders?f=unpaid");
@@ -42,6 +43,8 @@ test("order from an HQ area, sign in with an SMS code, pay by transfer, HQ confi
   const order = await db.order.findUniqueOrThrow({ where: { number } });
   expect(order.status).toBe("PAID");
   expect(order.distributorId).toBe("hq");
+  expect(order.contactEmail).toBe(email); // payment details and updates are emailed here
+  expect((await db.user.findUniqueOrThrow({ where: { email } })).phone).toMatch(/^\+234/); // delivery phone saved to the account
   await page.reload();
   await expect(page.getByRole("heading", { name: "Payment confirmed" })).toBeVisible();
 });
@@ -58,7 +61,7 @@ test("nearby towns enforce the minimum order", async ({ page }) => {
 });
 
 test("free 1kg sample with free pickup needs no payment", async ({ page }) => {
-  await signInAs(page.context(), newPhone(), { name: "Chidi Okafor" });
+  await signInAs(page.context(), newEmail(), { name: "Chidi Okafor" });
   await page.goto("/samples");
   await page.locator("#zone").selectOption({ label: "Pickup at flagship store (free)" });
   await expect(page.getByText("Sent by Naija Sweet Rice HQ")).toBeVisible();

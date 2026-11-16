@@ -58,7 +58,7 @@ You asked for a React app. I recommend **Next.js (a React framework)** over a pl
 | Cache / queues | **Redis** (Upstash) + BullMQ | Sessions, carts, rate limits, background jobs (SMS, emails, point awards) |
 | Content (CMS) | **Sanity** or Strapi | Products, promotions, banners, blog and area pages, edited by staff without code |
 | Payments | **Paystack** (primary), Flutterwave (fallback) | Nigerian cards, bank transfer, USSD; strong dashboard for refunds |
-| SMS / OTP | Termii (or Africa's Talking) | Nigerian SMS delivery, DND-safe OTP route |
+| SMS / OTP | Termii (or Africa's Talking) | Nigerian SMS delivery, DND-safe OTP route. **Soft launch: no SMS; sign-in codes and messages go by email (Resend)** |
 | WhatsApp updates | WhatsApp Business Cloud API | Order and delivery notifications people actually read |
 | Email | Resend / Postmark | Receipts, account emails |
 | Delivery | In-house riders in Abuja + integration with **Kwik / GIG Logistics** for overflow and outside Abuja | Tracking IDs feed the order timeline |

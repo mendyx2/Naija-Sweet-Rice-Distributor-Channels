@@ -70,7 +70,7 @@ export function TransferPanel({ number, amountKobo, payTo, deadline, markedPaid 
       </h2>
       <p className="mt-1 text-sm text-muted">
         {sent
-          ? `${payTo.distributorName ?? "The seller"} will confirm as soon as the money shows in their account. We'll text you.`
+          ? `${payTo.distributorName ?? "The seller"} will confirm as soon as the money shows in their account. We'll email you.`
           : <>Transfer the exact amount to <strong>{payTo.distributorName}</strong>{deadlineLabel ? <> by <strong>{deadlineLabel}</strong></> : null}, then tap the button below.</>}
       </p>
       <dl className="mt-4 divide-y divide-border rounded-2xl bg-background">

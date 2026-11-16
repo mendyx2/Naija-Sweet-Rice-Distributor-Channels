@@ -47,7 +47,7 @@ async function SampleContent() {
     return (
       <>
         <h2 className="font-display text-2xl font-bold">First, confirm your phone</h2>
-        <p className="mt-2 text-muted">We&apos;ll text you a code. This keeps samples to one per person.</p>
+        <p className="mt-2 text-muted">We&apos;ll email you a code. This keeps samples to one per person.</p>
         <div className="mt-6"><OtpForm next="/samples" /></div>
       </>
     );
@@ -72,7 +72,7 @@ async function SampleContent() {
       <h2 className="font-display text-2xl font-bold">Where should we send it?</h2>
       <SampleForm
         zones={zones.map((z) => ({ id: z.id, name: z.name, kind: z.kind }))}
-        defaults={{ name: user.name ?? "", phone: formatNgPhone(user.phone) }}
+        defaults={{ name: user.name ?? "", phone: user.phone ? formatNgPhone(user.phone) : "" }}
       />
     </>
   );

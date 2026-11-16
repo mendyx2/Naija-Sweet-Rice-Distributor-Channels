@@ -2,27 +2,27 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { db } from "./db";
 import { getCurrentUser, type CurrentUser } from "./auth";
-import { normalizeNgPhone } from "./phone";
+import { normalizeEmail } from "./email-address";
 
 /**
- * HQ staff access for /ops: each person signs in with their own phone number
- * and SMS code (same login as everyone else) and needs an HQ role:
+ * HQ staff access for /ops: each person signs in with their own email address
+ * and emailed code (same login as everyone else) and needs an HQ role:
  *   OWNER: everything, including the HQ team and distributors' bank details
  *   STAFF: day-to-day operations
- * HQ_OWNER_PHONES (comma-separated) are always owners, so HQ can't be locked out.
+ * HQ_OWNER_EMAILS (comma-separated) are always owners, so HQ can't be locked out.
  */
 export type HqRole = "OWNER" | "STAFF";
 
 function bootstrapOwners(): Set<string> {
   return new Set(
-    (process.env.HQ_OWNER_PHONES ?? "").split(",").map((p) => normalizeNgPhone(p.trim())).filter((p): p is string => !!p),
+    (process.env.HQ_OWNER_EMAILS ?? "").split(",").map((e) => normalizeEmail(e)).filter((e): e is string => !!e),
   );
 }
 
 export async function getHqStaff(): Promise<{ user: CurrentUser; role: HqRole } | null> {
   const user = await getCurrentUser();
   if (!user) return null;
-  if (bootstrapOwners().has(user.phone) && !user.roles.includes("OWNER")) {
+  if (user.email && bootstrapOwners().has(user.email) && !user.roles.includes("OWNER")) {
     await db.user.update({ where: { id: user.id }, data: { roles: [...new Set([...user.roles, "OWNER" as const])] } });
     return { user, role: "OWNER" };
   }

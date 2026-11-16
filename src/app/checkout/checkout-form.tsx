@@ -77,7 +77,7 @@ export function CheckoutForm({
               <input name="phone" type="tel" inputMode="tel" required defaultValue={defaults.phone} autoComplete="tel-national" className="field" />
             </label>
             <label className="block">
-              <span className="text-sm font-semibold">Email <span className="font-normal text-muted">(for receipt)</span></span>
+              <span className="text-sm font-semibold">Email <span className="font-normal text-muted">(payment details and order updates go here)</span></span>
               <input name="email" type="email" defaultValue={defaults.email} autoComplete="email" className="field" />
             </label>
           </div>
@@ -94,7 +94,7 @@ export function CheckoutForm({
             </div>
             {isPickup ? (
               <p className="rounded-xl bg-brand-soft p-4 text-sm">
-                You&apos;ll collect your order from our flagship store. We&apos;ll text you when it&apos;s ready.
+                You&apos;ll collect your order from our flagship store. We&apos;ll email you when it&apos;s ready.
               </p>
             ) : (
               <>

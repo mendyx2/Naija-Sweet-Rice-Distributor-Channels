@@ -35,7 +35,7 @@ async function Register({ searchParams }: Pick<PageProps<"/register">, "searchPa
   const p = user.sellerProfile;
   if (p?.status === "APPROVED") redirect("/account");
   if (p?.status === "PENDING") {
-    return <p className="rounded-xl bg-brand-soft p-4 text-brand font-medium">Your application for {p.businessName} is under review. We&apos;ll text you when it&apos;s approved.</p>;
+    return <p className="rounded-xl bg-brand-soft p-4 text-brand font-medium">Your application for {p.businessName} is under review. We&apos;ll email you when it&apos;s approved.</p>;
   }
   return <SellerForm name={user.name ?? ""} defaults={p ? { businessName: p.businessName, cacNumber: p.cacNumber, address: p.address } : undefined} />;
 }

@@ -71,7 +71,7 @@ async function main() {
   await db.distributor.upsert({
     where: { slug: "gova-max-ltd" },
     update: {},
-    create: { name: "Gova Max Ltd", slug: "gova-max-ltd", address: "Laura Internal Market, Abuja FCT" },
+    create: { name: "Gova Max Ltd", slug: "gova-max-ltd", address: "Kaura Internal Market, Abuja FCT" },
   });
   const variants = await db.variant.findMany({ where: { productId: product.id } });
   for (const d of await db.distributor.findMany()) {

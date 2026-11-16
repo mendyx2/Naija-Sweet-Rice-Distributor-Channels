@@ -3,16 +3,26 @@ import type { BrowserContext, Page } from "@playwright/test";
 import { db } from "./db";
 
 let counter = 0;
+const stamp = () => `${Date.now().toString(36)}${++counter}`;
 /** A fresh Nigerian mobile number per call, so tests never collide. */
 export const newPhone = () => `0809${String(Date.now() % 10_000_000).padStart(7, "0").slice(-5)}${String(++counter).padStart(2, "0")}`;
+/** A fresh email address per call (people sign in with email). */
+export const newEmail = (who = "shopper") => `${who}.${stamp()}@example.test`;
 const e164 = (local: string) => `+234${local.replace(/\D/g, "").replace(/^0/, "")}`;
 
-/** Signs a browser in as this phone number without SMS (creates the user if needed). */
-export async function signInAs(context: BrowserContext, phone: string, opts: { name?: string; roles?: ("OWNER" | "STAFF")[] } = {}) {
-  const p = e164(phone);
+/** Fixed people from global-setup / playwright.config. */
+export const HQ_OWNER = "owner@naijasweetrice.test"; // in HQ_OWNER_EMAILS
+export const GOVA_OWNER = "musa@govamax.test";
+
+/**
+ * Signs a browser in as this email without the code step (creates the user if needed).
+ * New customers get a phone number too, as if they had ordered before, unless `phone: null`.
+ */
+export async function signInAs(context: BrowserContext, email: string, opts: { name?: string; roles?: ("OWNER" | "STAFF")[]; phone?: string | null } = {}) {
+  const phone = opts.phone === null ? null : e164(opts.phone ?? newPhone());
   const user = await db.user.upsert({
-    where: { phone: p },
-    create: { phone: p, name: opts.name ?? null, referralCode: `T${randomBytes(4).toString("hex").toUpperCase()}`, roles: ["BUYER", ...(opts.roles ?? [])] },
+    where: { email },
+    create: { email, phone, name: opts.name ?? null, referralCode: `T${randomBytes(4).toString("hex").toUpperCase()}`, roles: ["BUYER", ...(opts.roles ?? [])] },
     update: opts.roles ? { roles: ["BUYER", ...opts.roles] } : {},
   });
   const token = randomBytes(32).toString("base64url");
@@ -22,9 +32,9 @@ export async function signInAs(context: BrowserContext, phone: string, opts: { n
   return user;
 }
 
-/** Real login through the phone + code screen (development mode shows the code on screen). */
-export async function loginWithCode(page: Page, phone: string) {
-  await page.getByLabel("Mobile number").fill(phone);
+/** Real login through the email + code screen (development mode shows the code on screen). */
+export async function loginWithCode(page: Page, email: string) {
+  await page.getByLabel("Email address").fill(email);
   await page.getByRole("button", { name: "Send code" }).click();
   const code = (await page.getByText("your code is").locator("strong").textContent())!.trim();
   await page.getByLabel("6-digit code").fill(code);

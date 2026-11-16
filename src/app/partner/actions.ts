@@ -11,9 +11,9 @@ import { nairaToKobo, formatNaira } from "@/lib/money";
 import { withinBand } from "@/lib/network-rules";
 import { alertHq } from "@/lib/notify";
 import { notifyDistributor } from "@/lib/staff-alerts";
-import { normalizeNgPhone, maskPhone } from "@/lib/phone";
 import { makeReferralCode } from "@/lib/auth";
-import { sendSms } from "@/lib/sms";
+import { notifyPerson } from "@/lib/notify";
+import { maskEmail, normalizeEmail } from "@/lib/email-address";
 import { site } from "@/lib/site";
 import { TAGS } from "@/lib/catalogue";
 
@@ -215,20 +215,20 @@ export async function saveFees(_prev: FormState, formData: FormData): Promise<Fo
 
 export async function addStaff(_prev: FormState, formData: FormData): Promise<FormState> {
   const { distributor, actor } = await requirePartner({ ownerOnly: true });
-  const phone = normalizeNgPhone(String(formData.get("phone") ?? ""));
+  const email = normalizeEmail(String(formData.get("email") ?? ""));
   const name = String(formData.get("name") ?? "").trim().slice(0, 80) || null;
-  if (!phone) return { ok: false, message: "Enter a valid Nigerian mobile number." };
-  const user = (await db.user.findUnique({ where: { phone }, include: { distributorMember: true } }))
-    ?? (await db.user.create({ data: { phone, name, referralCode: makeReferralCode(name) }, include: { distributorMember: true } }));
-  if (user.roles.includes("OWNER") || user.roles.includes("STAFF")) return { ok: false, message: `${maskPhone(phone)} can't be added.` };
+  if (!email) return { ok: false, message: "Enter a valid email address." };
+  const user = (await db.user.findUnique({ where: { email }, include: { distributorMember: true } }))
+    ?? (await db.user.create({ data: { email, name, referralCode: makeReferralCode(name) }, include: { distributorMember: true } }));
+  if (user.roles.includes("OWNER") || user.roles.includes("STAFF")) return { ok: false, message: `${maskEmail(email)} can't be added.` };
   if (user.distributorMember) {
-    return { ok: false, message: user.distributorMember.distributorId === distributor.id ? "Already on your team." : `${maskPhone(phone)} already works with another distributor.` };
+    return { ok: false, message: user.distributorMember.distributorId === distributor.id ? "Already on your team." : `${maskEmail(email)} already works with another distributor.` };
   }
   await db.distributorMember.create({ data: { userId: user.id, distributorId: distributor.id, role: "STAFF" } });
   await db.auditLog.create({ data: { actor, action: "partner.staff_add", entity: "Distributor", entityId: distributor.id, after: { userId: user.id } } });
-  await sendSms(phone, `${site.name}: ${distributor.name} added you to their team. Sign in with this number at ${site.url}/partner`);
+  await notifyPerson(email, `${distributor.name} added you to their team`, `${distributor.name} added you to their team on ${site.name}. Sign in with this email address at ${site.url}/partner`);
   refresh();
-  return { ok: true, message: `Added ${maskPhone(phone)}.` };
+  return { ok: true, message: `Added ${maskEmail(email)}. They've been emailed a sign-in link.` };
 }
 
 export async function removeStaff(formData: FormData) {

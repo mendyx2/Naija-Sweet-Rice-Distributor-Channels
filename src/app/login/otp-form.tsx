@@ -2,45 +2,43 @@
 
 import { useActionState, useEffect, useRef } from "react";
 import { requestCode, verifyCode, type OtpState } from "./actions";
-import { formatNgPhone } from "@/lib/phone";
 
-/** Two-step phone sign-in: number → SMS code. Used on /login and inside checkout. */
+/** Two-step sign-in: email → 6-digit code by email. Used on /login, /ops/login and inside checkout. */
 export function OtpForm({ next }: { next: string }) {
-  const [sendState, send, sending] = useActionState<OtpState, FormData>(requestCode, { step: "phone" });
+  const [sendState, send, sending] = useActionState<OtpState, FormData>(requestCode, { step: "email" });
   const [verifyState, verify, verifying] = useActionState<OtpState | null, FormData>(verifyCode, null);
   const codeRef = useRef<HTMLInputElement>(null);
 
-  const onCodeStep = sendState.step === "code" && verifyState?.step !== "phone";
-  const phone = sendState.step === "code" ? sendState.phone : "";
+  const onCodeStep = sendState.step === "code" && verifyState?.step !== "email";
+  const email = sendState.step === "code" ? sendState.email : "";
 
   useEffect(() => {
     if (onCodeStep) codeRef.current?.focus();
   }, [onCodeStep]);
 
   if (!onCodeStep) {
-    const error = sendState.error ?? (verifyState?.step === "phone" ? verifyState.error : undefined);
+    const error = sendState.error ?? (verifyState?.step === "email" ? verifyState.error : undefined);
     return (
       <form action={send} className="space-y-4" noValidate>
         <label className="block">
-          <span className="text-sm font-semibold">Mobile number</span>
-          <div className="mt-1 flex rounded-xl border border-border bg-surface focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20">
-            <span className="flex items-center pl-3 pr-2 text-muted border-r border-border">🇳🇬 +234</span>
-            <input
-              name="phone"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel-national"
-              required
-              placeholder="0801 234 5678"
-              defaultValue={sendState.step === "phone" ? sendState.phone : ""}
-              aria-invalid={!!error}
-              aria-describedby={error ? "phone-error" : "phone-help"}
-              className="w-full rounded-r-xl bg-transparent px-3 py-3 text-base outline-none"
-            />
-          </div>
-          <span id="phone-help" className="mt-1 block text-xs text-muted">We&apos;ll text you a code. No password needed.</span>
+          <span className="text-sm font-semibold">Email address</span>
+          <input
+            name="email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            required
+            placeholder="you@example.com"
+            defaultValue={sendState.step === "email" ? sendState.email : ""}
+            aria-invalid={!!error}
+            aria-describedby={error ? "email-error" : "email-help"}
+            className="field mt-1"
+          />
+          <span id="email-help" className="mt-1 block text-xs text-muted">We&apos;ll email you a 6-digit code. No password needed.</span>
         </label>
-        {error && <p id="phone-error" role="alert" className="text-sm text-danger">{error}</p>}
+        {error && <p id="email-error" role="alert" className="text-sm text-danger">{error}</p>}
         <button disabled={sending} className="btn-cta w-full">{sending ? "Sending code…" : "Send code"}</button>
       </form>
     );
@@ -50,14 +48,14 @@ export function OtpForm({ next }: { next: string }) {
   return (
     <div className="space-y-4">
       <form action={verify} className="space-y-4">
-        <input type="hidden" name="phone" value={phone} />
+        <input type="hidden" name="email" value={email} />
         <input type="hidden" name="next" value={next} />
         <p className="text-sm">
-          Enter the 6-digit code sent to <strong>{formatNgPhone(phone)}</strong>.
+          Enter the 6-digit code sent to <strong className="break-all">{email}</strong>. It can take a minute; check your spam folder too.
         </p>
         {sendState.step === "code" && sendState.devCode && (
           <p className="rounded-lg bg-promo-soft px-3 py-2 text-xs">
-            Development mode (no SMS provider): your code is <strong className="tracking-widest">{sendState.devCode}</strong>
+            Development mode (no email provider): your code is <strong className="tracking-widest">{sendState.devCode}</strong>
           </p>
         )}
         <input
@@ -76,8 +74,8 @@ export function OtpForm({ next }: { next: string }) {
         <button disabled={verifying} className="btn-cta w-full">{verifying ? "Checking…" : "Verify & continue"}</button>
       </form>
       <form action={send} className="flex justify-between text-sm">
-        <input type="hidden" name="phone" value={phone} />
-        <button type="button" onClick={() => location.reload()} className="text-muted underline">Change number</button>
+        <input type="hidden" name="email" value={email} />
+        <button type="button" onClick={() => location.reload()} className="text-muted underline">Change email</button>
         <button disabled={sending} className="font-semibold text-brand underline">{sending ? "Sending…" : "Resend code"}</button>
       </form>
     </div>

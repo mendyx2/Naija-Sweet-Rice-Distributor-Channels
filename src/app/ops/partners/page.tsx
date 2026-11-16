@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import { db } from "@/lib/db";
 import { requireOps } from "@/lib/ops-auth";
-import { formatNgPhone } from "@/lib/phone";
 import { OpsNav } from "../ops-nav";
 import { reviewAffiliate, reviewSeller } from "../actions";
+import { contactLabel } from "@/lib/people";
 
 export default function PartnersPage() {
   return <Suspense fallback={<p className="text-muted">Loading…</p>}><Partners /></Suspense>;
@@ -26,7 +26,7 @@ async function Partners() {
             <li key={s.userId} className="card p-5 flex flex-wrap items-center justify-between gap-4">
               <div className="text-sm">
                 <p className="font-bold text-base">{s.businessName} <span className="ml-2 text-xs font-semibold text-muted">{s.status}</span></p>
-                <p>{s.user.name} · {formatNgPhone(s.user.phone)}{s.cacNumber ? ` · CAC ${s.cacNumber}` : ""}</p>
+                <p>{s.user.name} · {contactLabel(s.user)}{s.cacNumber ? ` · CAC ${s.cacNumber}` : ""}</p>
                 <p className="text-muted">{s.address}</p>
               </div>
               {s.status !== "APPROVED" && (
@@ -49,7 +49,7 @@ async function Partners() {
             <li key={a.userId} className="card p-5 flex flex-wrap items-center justify-between gap-4">
               <div className="text-sm">
                 <p className="font-bold text-base">{a.user.name ?? "No name yet"} <span className="ml-2 text-xs font-semibold text-muted">{a.status}</span></p>
-                <p>{formatNgPhone(a.user.phone)} · code <span className="font-mono">{a.code}</span></p>
+                <p>{contactLabel(a.user)} · code <span className="font-mono">{a.code}</span></p>
                 <p className="text-muted">{a._count.clicks} clicks · {a._count.orders} orders</p>
               </div>
               {a.status !== "APPROVED" ? (

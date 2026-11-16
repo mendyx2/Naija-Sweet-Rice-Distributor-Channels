@@ -13,24 +13,25 @@ nearby towns, purchase points → discount coupons, bag-replacement returns.
 Requirements: Node 22+, PostgreSQL 16.
 
 ```bash
-cp .env.example .env      # then fill in DATABASE_URL, SESSION_SECRET, HQ_OWNER_PHONES
+cp .env.example .env      # then fill in DATABASE_URL, SESSION_SECRET, HQ_OWNER_EMAILS
 npm install
 npm run db:migrate        # create tables
 npm run db:seed           # bag sizes + delivery zones (prices start empty)
 npm run dev               # http://localhost:3000
 ```
 
-Customers pay by **bank transfer** to the seller for their area (a distributor, or HQ). SMS (Termii) is used for login
-codes, customer messages and the bank-change security alert; staff alerts go to Telegram and/or email (free). Without
-the provider keys, local development shows the login code on screen and prints messages to the server log.
+Customers pay by **bank transfer** to the seller for their area (a distributor, or HQ). Everyone signs in
+with their **email address** and a 6-digit code sent by email (Resend). Customer messages also go by email, and staff
+alerts go to Telegram and/or email (all free). There is no SMS during the soft launch. Without the provider keys, local
+development shows the sign-in code on screen and prints messages to the server log.
 
-Staff screens live at **/ops**: HQ staff sign in with their own phone number (owners come from `HQ_OWNER_PHONES`; owners add the rest under **HQ team**). Distributors use **/partner** (phone sign-in; HQ adds their number in `/ops/distributors`).
+Staff screens live at **/ops**: HQ staff sign in with their own email address (owners come from `HQ_OWNER_EMAILS`; owners add the rest under **HQ team**). Distributors use **/partner** (email sign-in; HQ adds their email in `/ops/distributors`).
 
 - **/ops/distributors**: add distributors, set their bank account (HQ only), areas, logins, send stock, approve stock adjustments, see their month.
 - **/ops/restocks**: distributor stock requests: invoice, confirm payment, dispatch.
 - **/ops/statements**: close a month per distributor and mark statements settled.
 
-- **/ops/orders**: move paid orders to preparing → out for delivery (with rider) → delivered. Each change texts the customer.
+- **/ops/orders**: move paid orders to preparing → out for delivery (with rider) → delivered. Each change emails the customer.
 - **/ops/returns**: review bag-replacement requests with photos; approving creates a free replacement order.
 - **/ops/partners**: approve sellers (wholesale prices) and affiliates.
 - **/ops/promotions**: publish promotions and coupon codes with start/end dates.
@@ -67,7 +68,7 @@ src/lib/rewards.ts        Purchase / referral / affiliate points → coupon tier
 src/lib/catalogue.ts      Cached catalogue reads ("use cache" + tags)
 src/lib/orders.ts         Order creation, stock holds, payment confirmation (idempotent)
 src/lib/paystack.ts       Paystack API; webhook at src/app/api/webhooks/paystack
-src/lib/auth.ts, otp.ts   Phone + SMS-code sign-in, sessions
+src/lib/auth.ts, otp.ts   Email-code sign-in, sessions
 src/lib/ops-auth.ts       Temporary staff sign-in for /ops
 src/app/                  Pages (shop, product, delivery, returns, promotions, ops)
 tests/                    Vitest unit tests

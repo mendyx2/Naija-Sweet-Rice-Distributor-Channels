@@ -66,3 +66,12 @@ export function makeReferralCode(name: string | null): string {
   for (const b of bytes) s += REF_ALPHABET[b % REF_ALPHABET.length];
   return `${prefix}${s}`;
 }
+
+/**
+ * After an order: keep the name and delivery phone on the account if it has none yet.
+ * The phone isn't used to sign in, and a number already saved on another account is left alone.
+ */
+export async function rememberContact(user: Pick<User, "id" | "name" | "phone">, name: string, phone: string) {
+  if (!user.name) await db.user.update({ where: { id: user.id }, data: { name } });
+  if (!user.phone) await db.user.update({ where: { id: user.id }, data: { phone } }).catch(() => {}); // unique: ignore if taken
+}

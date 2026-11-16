@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: PageProps<"/delivery/[area]">
   const where = zone.kind === "ABUJA" ? `${zone.name}, Abuja` : zone.name;
   return {
     title: `Rice Delivery in ${where}: 50kg, 25kg & 5kg Bags`,
-    description: `Order ${site.name} for delivery to ${where}. Delivery from ${formatNaira(zone.baseFeeKobo)}${zone.etaHours ? `, usually within ${zone.etaHours} hours` : ""}. Pay online by card, transfer or USSD.`,
+    description: `Order ${site.name} for delivery to ${where}. Delivery from ${formatNaira(zone.baseFeeKobo)}${zone.etaHours ? `, usually within ${zone.etaHours} hours` : ""}. Pay by bank transfer.`,
     alternates: { canonical: `/delivery/${zone.slug}` },
   };
 }
@@ -84,7 +84,7 @@ async function Area({ params }: Pick<PageProps<"/delivery/[area]">, "params">) {
       </nav>
       <h1 className="font-display text-4xl sm:text-5xl font-bold mt-2">Rice delivery in {where}</h1>
       <p className="mt-4 text-lg text-muted max-w-2xl">
-        Get {site.name} delivered to your home, shop or office in {zone.name}. Order online, pay by card, transfer or USSD, and track your order by SMS.
+        Get {site.name} delivered to your home, shop or office in {zone.name}. Order online, pay by bank transfer, and follow your order online.
       </p>
 
       <dl className="mt-8 grid gap-3 sm:grid-cols-3">

@@ -10,6 +10,7 @@ import { ShopLinkCard } from "@/components/shop-link-card";
 import { formatNaira } from "@/lib/money";
 import { currentMonth, distributorMonth } from "@/lib/statement";
 import { addMember, removeMember, reviewAdjustment, sendStock, updateAreas, updateBankDetails, updateDistributor } from "../actions";
+import { contactLabel } from "@/lib/people";
 
 export default function DistributorPage({ params }: PageProps<"/ops/distributors/[id]">) {
   return <Suspense fallback={<p className="text-muted">Loading…</p>}><Distributor params={params} /></Suspense>;
@@ -81,7 +82,7 @@ async function Distributor({ params }: Pick<PageProps<"/ops/distributors/[id]">,
 
         <section className="card p-5">
           <h2 className="font-semibold text-lg">Bank account customers pay into</h2>
-          <p className="mt-1 text-sm text-muted">Only HQ can change this. Every change is logged and {d.isHq ? "HQ" : "the distributor"} is alerted by SMS.</p>
+          <p className="mt-1 text-sm text-muted">Only HQ can change this. Every change is logged and {d.isHq ? "HQ" : "the distributor's owners"} are alerted by Telegram and email.</p>
           {d.bankUpdatedAt && <p className="mt-1 text-xs text-muted">Last changed {when(d.bankUpdatedAt)}</p>}
           {!isOwner ? (
             <p className="mt-3 text-sm">
@@ -123,7 +124,7 @@ async function Distributor({ params }: Pick<PageProps<"/ops/distributors/[id]">,
             {d.members.length === 0 && <li className="text-muted">No one yet.</li>}
             {d.members.map((m) => (
               <li key={m.userId} className="flex items-center justify-between gap-3 rounded-lg bg-background px-3 py-2">
-                <span>{m.user.name ?? "No name"} · {m.user.phone.startsWith("+") ? formatNgPhone(m.user.phone) : "deleted"} <span className="text-xs text-muted">{m.role === "OWNER" ? "Owner" : "Staff"}</span></span>
+                <span>{m.user.name ?? "No name"} · <span className="break-all">{contactLabel(m.user)}</span> <span className="text-xs text-muted">{m.role === "OWNER" ? "Owner" : "Staff"}</span></span>
                 <form action={removeMember}><input type="hidden" name="userId" value={m.userId} /><button className="text-xs text-danger underline">Remove</button></form>
               </li>
             ))}
@@ -131,7 +132,7 @@ async function Distributor({ params }: Pick<PageProps<"/ops/distributors/[id]">,
           <ActionForm action={addMember} submit="Add login" className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
             <input type="hidden" name="id" value={d.id} />
             <label className="block"><span className="font-semibold">Name</span><input name="name" className="field" /></label>
-            <label className="block"><span className="font-semibold">Mobile number</span><input name="phone" type="tel" required className="field" /></label>
+            <label className="block"><span className="font-semibold">Email address</span><input name="email" type="email" autoComplete="off" required className="field" /></label>
             <label className="block sm:col-span-2"><span className="font-semibold">Role</span>
               <select name="role" className="field"><option value="OWNER">Owner (everything, incl. prices and staff)</option><option value="STAFF">Staff (orders, stock, shop sales)</option></select>
             </label>

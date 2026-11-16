@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { rememberContact, requireUser } from "@/lib/auth";
 import { normalizeNgPhone } from "@/lib/phone";
 import { deliveryFeeKobo } from "@/lib/pricing";
 import { sampleAddressKey } from "@/lib/samples";
@@ -94,7 +94,7 @@ export async function requestSample(_prev: SampleState, formData: FormData): Pro
     }
     throw e;
   }
-  if (!user.name) await db.user.update({ where: { id: user.id }, data: { name: f.name } });
+  await rememberContact(user, f.name, phone);
 
   if (fee === 0) {
     await markOrderPaid(order.number, { source: "free-sample" });

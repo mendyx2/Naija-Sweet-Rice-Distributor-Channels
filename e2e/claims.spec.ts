@@ -1,16 +1,16 @@
 import { expect, test } from "@playwright/test";
 import path from "node:path";
 import { db, variantId, zoneId } from "./db";
-import { newPhone, signInAs } from "./helpers";
+import { HQ_OWNER, newEmail, signInAs } from "./helpers";
 
 test("a damaged bag: customer sends photos, HQ approves, the distributor sends a free replacement", async ({ page, browser }) => {
-  const customer = await signInAs(page.context(), newPhone(), { name: "Bisi Ade" });
+  const customer = await signInAs(page.context(), newEmail(), { name: "Bisi Ade" });
   const gova = await db.distributor.findUniqueOrThrow({ where: { slug: "gova-max-ltd" } });
   const v50 = await variantId(50);
   // A delivered Gova order (created directly; the buying flow is covered in distributor.spec).
   const order = await db.order.create({
     data: {
-      number: `NSR-T${Date.now().toString(36).toUpperCase().slice(-5)}`, userId: customer.id, customerName: "Bisi Ade", contactPhone: customer.phone,
+      number: `NSR-T${Date.now().toString(36).toUpperCase().slice(-5)}`, userId: customer.id, customerName: "Bisi Ade", contactPhone: customer.phone!, contactEmail: customer.email,
       zoneId: await zoneId("Gwarinpa"), addressSnapshot: { street: "5 Gwarinpa Ave", landmark: null, zoneName: "Gwarinpa" },
       distributorId: gova.id, status: "DELIVERED", paidAt: new Date(), deliveredAt: new Date(), paymentMethod: "BANK_TRANSFER",
       subtotalKobo: 8_400_000, deliveryFeeKobo: 250_000, totalKobo: 8_650_000,
@@ -35,7 +35,7 @@ test("a damaged bag: customer sends photos, HQ approves, the distributor sends a
   expect(anon.status()).toBe(404);
 
   const hctx = await browser.newContext();
-  await signInAs(hctx, "08011112222");
+  await signInAs(hctx, HQ_OWNER);
   const ops = await hctx.newPage();
   await ops.goto("/ops/returns");
   await ops.locator("li", { hasText: order.number }).getByRole("button", { name: "Approve replacement" }).click();

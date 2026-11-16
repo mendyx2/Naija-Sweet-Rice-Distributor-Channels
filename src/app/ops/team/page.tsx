@@ -1,10 +1,11 @@
 import { Suspense } from "react";
 import { db } from "@/lib/db";
 import { requireOps } from "@/lib/ops-auth";
-import { formatNgPhone, normalizeNgPhone } from "@/lib/phone";
 import { ActionForm } from "@/components/action-form";
 import { OpsNav } from "../ops-nav";
 import { addHqMember, removeHqMember } from "./actions";
+import { contactLabel } from "@/lib/people";
+import { normalizeEmail } from "@/lib/email-address";
 
 export default function TeamPage() {
   return <Suspense fallback={<p className="text-muted">Loading…</p>}><Team /></Suspense>;
@@ -24,27 +25,27 @@ const ACTION_LABEL: Record<string, string> = {
 
 async function Team() {
   const actor = await requireOps({ ownerOnly: true });
-  const owners = new Set((process.env.HQ_OWNER_PHONES ?? "").split(",").map((p) => normalizeNgPhone(p.trim())).filter(Boolean));
+  const owners = new Set((process.env.HQ_OWNER_EMAILS ?? "").split(",").map((e) => normalizeEmail(e)).filter(Boolean));
   const [members, activity] = await Promise.all([
     db.user.findMany({ where: { roles: { hasSome: ["OWNER", "STAFF"] } }, orderBy: { createdAt: "asc" } }),
     db.auditLog.findMany({ where: { actor: { startsWith: "hq:" } }, orderBy: { createdAt: "desc" }, take: 30 }),
   ]);
-  const names = new Map(members.map((m) => [`hq:${m.id}`, m.name ?? formatNgPhone(m.phone)]));
+  const names = new Map(members.map((m) => [`hq:${m.id}`, m.name ?? contactLabel(m)]));
   return (
     <>
       <OpsNav current="team" />
       <h1 className="font-display text-2xl font-bold">HQ team</h1>
-      <p className="mt-1 text-sm text-muted">Everyone signs in with their own phone number. <strong>Owners</strong> can also manage this team and change distributors&apos; bank details.</p>
+      <p className="mt-1 text-sm text-muted">Everyone signs in with their own email address. <strong>Owners</strong> can also manage this team and change distributors&apos; bank details.</p>
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_360px] items-start">
         <div className="space-y-6">
           <ul className="card divide-y divide-border text-sm">
             {members.map((m) => (
               <li key={m.id} className="flex items-center justify-between gap-3 p-4">
                 <span>
-                  <strong>{m.name ?? "No name"}</strong> · {formatNgPhone(m.phone)}
-                  <span className="ml-2 text-xs text-muted">{m.roles.includes("OWNER") ? "Owner" : "Staff"}{owners.has(m.phone) ? " (set in site settings)" : ""}{actor === `hq:${m.id}` ? " · you" : ""}</span>
+                  <strong>{m.name ?? "No name"}</strong> · <span className="break-all">{contactLabel(m)}</span>
+                  <span className="ml-2 text-xs text-muted">{m.roles.includes("OWNER") ? "Owner" : "Staff"}{m.email && owners.has(m.email) ? " (set in site settings)" : ""}{actor === `hq:${m.id}` ? " · you" : ""}</span>
                 </span>
-                {actor !== `hq:${m.id}` && !owners.has(m.phone) && (
+                {actor !== `hq:${m.id}` && !(m.email && owners.has(m.email)) && (
                   <form action={removeHqMember}><input type="hidden" name="userId" value={m.id} /><button className="text-danger underline">Remove</button></form>
                 )}
               </li>
@@ -68,7 +69,7 @@ async function Team() {
           <h2 className="font-semibold text-lg">Add someone</h2>
           <ActionForm action={addHqMember} submit="Give HQ access" className="mt-3 space-y-3 text-sm">
             <label className="block"><span className="font-semibold">Name</span><input name="name" required className="field" /></label>
-            <label className="block"><span className="font-semibold">Mobile number</span><input name="phone" type="tel" required className="field" /></label>
+            <label className="block"><span className="font-semibold">Email address</span><input name="email" type="email" autoComplete="off" required className="field" /></label>
             <label className="block"><span className="font-semibold">Role</span>
               <select name="role" className="field"><option value="STAFF">Staff</option><option value="OWNER">Owner</option></select>
             </label>

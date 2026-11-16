@@ -21,7 +21,7 @@ jobs:
       DATABASE_URL: postgresql://nsr:nsr@localhost:5432/nsr?schema=public
       NEXT_PUBLIC_SITE_URL: https://example.com
       SESSION_SECRET: ci-only-secret-ci-only-secret-ci-only-secret
-      HQ_OWNER_PHONES: "08011112222"
+      HQ_OWNER_EMAILS: "owner@naijasweetrice.test"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

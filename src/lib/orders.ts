@@ -3,9 +3,7 @@ import { Prisma, type OrderType, type PaymentMethod, type StockMovementType } fr
 import { db } from "./db";
 import { pointsForOrder, pointsToExpire } from "./rewards";
 import { newCouponCode } from "./redeem";
-import { sendSms } from "./sms";
-import { site } from "./site";
-import { alertHq, notifyOrderPaid, notifyPaymentReminder } from "./notify";
+import { alertHq, notifyOrderPaid, notifyPaymentReminder, notifySampleFollowUp } from "./notify";
 import { holdStock, moveStock } from "./stock";
 import { PAYMENT_HOLD_HOURS, PAYMENT_REMINDER_HOURS } from "./network-rules";
 
@@ -260,11 +258,11 @@ export async function expireOldPoints(months = 12): Promise<number> {
   return n;
 }
 
-/** 3 days after a free sample is delivered: a personal "come back" coupon by SMS. */
+/** 3 days after a free sample is delivered: a personal "come back" coupon by email. */
 export async function sendSampleFollowUps(): Promise<number> {
   const due = await db.order.findMany({
     where: { type: "SAMPLE", status: "DELIVERED", followUpSentAt: null, deliveredAt: { lt: new Date(Date.now() - 3 * 86400_000) } },
-    select: { id: true, userId: true, contactPhone: true },
+    select: { id: true, number: true, userId: true, contactEmail: true },
     take: 100,
   });
   let n = 0;
@@ -277,7 +275,7 @@ export async function sendSampleFollowUps(): Promise<number> {
         userId: o.userId, source: "WINBACK", expiresAt: new Date(Date.now() + 30 * 86400_000),
       },
     });
-    await sendSms(o.contactPhone, `${site.name}: enjoyed your sample? Here's ₦1,000 off your first bag (orders over ₦20,000): ${coupon.code}. Valid 30 days. ${site.url}/shop`);
+    await notifySampleFollowUp(o, coupon.code);
     n++;
   }
   return n;

@@ -1,13 +1,12 @@
 import { expect, test } from "@playwright/test";
 import { db, stockOf, zoneId } from "./db";
-import { acceptDialogs, chooseArea, newPhone, signInAs, statusText } from "./helpers";
+import { acceptDialogs, chooseArea, GOVA_OWNER, HQ_OWNER, newEmail, signInAs, statusText } from "./helpers";
 
 test.describe.configure({ mode: "serial" });
 
-const GOVA_OWNER = "08120003333";
 
 test("a Gwarinpa order goes to Gova Max, is paid into Gova's account and delivered", async ({ page, browser }) => {
-  await signInAs(page.context(), newPhone(), { name: "Tunde Bakare" });
+  await signInAs(page.context(), newEmail(), { name: "Tunde Bakare" });
   await page.goto("/");
   await chooseArea(page, await zoneId("Gwarinpa"));
   await page.goto("/p/naija-sweet-rice?size=50");
@@ -51,7 +50,7 @@ test("a Gwarinpa order goes to Gova Max, is paid into Gova's account and deliver
 });
 
 test("ordering more than Gova holds sends the order to HQ", async ({ page }) => {
-  await signInAs(page.context(), newPhone());
+  await signInAs(page.context(), newEmail());
   await page.goto("/");
   await chooseArea(page, await zoneId("Gwarinpa"));
   await page.goto("/p/naija-sweet-rice?size=25");
@@ -74,7 +73,7 @@ test("a distributor's own promo code only works on its orders, with no HQ credit
   await gp.getByRole("button", { name: "Create code" }).click();
   await expect(statusText(gp, /is live/)).toBeVisible();
 
-  await signInAs(page.context(), newPhone(), { name: "Ada Customer" });
+  await signInAs(page.context(), newEmail(), { name: "Ada Customer" });
   await page.goto("/");
   await chooseArea(page, await zoneId("Gwarinpa"));
   await page.goto("/p/naija-sweet-rice?size=50");
@@ -108,7 +107,7 @@ test("restock: request → invoice → distributor pays HQ → dispatch → rece
   const rs = (await db.restockOrder.findFirstOrThrow({ orderBy: { createdAt: "desc" } })).number;
 
   const hctx = await browser.newContext();
-  await signInAs(hctx, "08011112222");
+  await signInAs(hctx, HQ_OWNER);
   const ops = await hctx.newPage();
   acceptDialogs(ops);
   await ops.goto("/ops/restocks?f=new");

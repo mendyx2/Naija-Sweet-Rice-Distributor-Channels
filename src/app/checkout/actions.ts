@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
-import { requireUser, isApprovedSeller } from "@/lib/auth";
+import { rememberContact, requireUser, isApprovedSeller } from "@/lib/auth";
 import { priceCart, couponMessage } from "@/lib/checkout-data";
 import { describeIssue } from "@/lib/pricing";
 import { formatNaira } from "@/lib/money";
@@ -71,7 +71,7 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
   const affiliate = affCode ? await db.affiliateProfile.findUnique({ where: { code: affCode } }) : null;
   const affiliateId = affiliate?.status === "APPROVED" && affiliate.userId !== user.id ? affiliate.userId : null;
 
-  if (!user.name) await db.user.update({ where: { id: user.id }, data: { name: f.name } });
+  await rememberContact(user, f.name, phone);
 
   const fees = await currentHqFees();
   const payTo = payToSnapshot(distributor);

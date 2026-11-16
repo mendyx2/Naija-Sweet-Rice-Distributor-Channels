@@ -196,7 +196,7 @@ DemandSignal       zone/area, phone?, createdAt
 
 ## 11. Progress (13 Nov 2026)
 
-Confirmed: HQ also uses bank transfer, the per-bag fee is set per bag size, 3-hour payment hold, monthly statements, first distributor **Gova Max Ltd** (Laura Internal Market, Abuja). Google account for the sheet: to be added later.
+Confirmed: HQ also uses bank transfer, the per-bag fee is set per bag size, 3-hour payment hold, monthly statements, first distributor **Gova Max Ltd** (Kaura Internal Market, Abuja FCT). Google account for the sheet: to be added later.
 
 **Built and tested end to end**
 - **D1:** distributors (HQ is one), logins with owner/staff roles, one distributor per area, price range and per-bag HQ fee per size (with history), per-distributor prices, delivery fees and stock, and a stock movement history. Existing stock and orders moved to HQ.
@@ -237,7 +237,7 @@ Confirmed: HQ also uses bank transfer, the per-bag fee is set per bag size, 3-ho
 
 **Added later on 13 Nov 2026**
 - **Distributors' own promo codes:** created by distributor owners under Prices & delivery. They're funded by the distributor, only work on that distributor's orders, and aren't credited on statements. HQ can see them on the Promotions page.
-- **Individual HQ logins:** the shared `/ops` password is gone. HQ staff sign in with their own phone, as owner or staff; owners come from `HQ_OWNER_PHONES` and add others under **HQ team**. Only owners can change bank details or the team. The team page shows recent activity by person.
+- **Individual HQ logins:** the shared `/ops` password is gone. HQ staff sign in with their own email (originally phone; see the soft-launch note below), as owner or staff; owners come from `HQ_OWNER_EMAILS` and add others under **HQ team**. Only owners can change bank details or the team. The team page shows recent activity by person.
 
 - **Network map (/ops/network):** a drawn map of Abuja and nearby towns. Each area is coloured by the distributor that covers it (grey outline = HQ), and the dot grows with paid orders in the last 30 days. Tables underneath show the same facts plus each seller's sales and stock. It needs no outside map service. A new area appears in the table and goes on the map once its position is added in `src/lib/network-map.ts`.
 

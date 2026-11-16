@@ -12,9 +12,8 @@ This guide takes the store from this code to a live website, then through the fi
 | **Vercel** | Runs the website | Pro plan recommended (needed for the 10-minute housekeeping job; see §6) |
 | **Neon** (or any PostgreSQL host) | The database | Free tier to start |
 | **Domain name** (e.g. `naijasweetrice.ng`) | The web address | Yearly fee from a registrar |
-| **Termii** | SMS: login codes and customer messages | Pay per SMS |
 | **Telegram** + a bot from @BotFather | Free staff alerts | Free |
-| **Resend** (optional) | Free staff alert emails | Free tier |
+| **Resend** | Email: sign-in codes, customer order messages and staff alerts. You verify your domain in Resend so emails come from it | Free tier (3,000 emails a month) |
 | **Google Cloud** (optional) | The stock depletion sheet | Free |
 
 ---
@@ -54,10 +53,10 @@ Never put these in chat, email or the code. Enter them only in Vercel's settings
 | `DATABASE_URL` | Neon connection string |
 | `NEXT_PUBLIC_SITE_URL` | `https://yourdomain` (no trailing slash) |
 | `SESSION_SECRET` | 48+ random characters (a developer can run `openssl rand -base64 48`) |
-| `HQ_OWNER_PHONES` | Your phone number(s), comma-separated, e.g. `08031234567`. These always have full HQ access |
+| `HQ_OWNER_EMAILS` | Your email address(es), comma-separated, e.g. `you@naijasweetrice.ng`. These always have full HQ access |
 | `CRON_SECRET` | Another random string; protects the housekeeping job |
-| `TERMII_API_KEY` | From your Termii dashboard |
-| `TERMII_SENDER_ID` | Your approved sender ID (Termii must approve it first) |
+| `RESEND_API_KEY` | From your Resend dashboard (API Keys) |
+| `EMAIL_FROM` | The sender, on your verified domain, e.g. `Naija Sweet Rice <hello@naijasweetrice.ng>` |
 
 **Store details** (shown in the footer and to Google; use exactly what's on your Google Business Profile)
 
@@ -68,7 +67,7 @@ Never put these in chat, email or the code. Enter them only in Vercel's settings
 | Feature | Settings |
 |---|---|
 | Telegram staff alerts | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` (random string) |
-| Email staff alerts | `RESEND_API_KEY`, `EMAIL_FROM` (e.g. `Naija Sweet Rice <alerts@yourdomain>`), `OPS_ALERT_EMAIL` |
+| HQ alert emails | `OPS_ALERT_EMAIL` (where HQ alerts go; uses the Resend settings above) |
 | Google stock sheet | `GOOGLE_SHEETS_ID`, `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_SERVICE_ACCOUNT_KEY` |
 | Analytics (after cookie consent) | `NEXT_PUBLIC_GA_ID`, `NEXT_PUBLIC_META_PIXEL_ID` |
 | Rate limits shared across servers | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` |
@@ -77,7 +76,7 @@ Never put these in chat, email or the code. Enter them only in Vercel's settings
 
 ## 5. First sign-in and setup in `/ops`
 
-Go to `https://yourdomain/ops` and sign in with a phone number from `HQ_OWNER_PHONES`. Then:
+Go to `https://yourdomain/ops` and sign in with an email address from `HQ_OWNER_EMAILS`. Then:
 
 1. **HQ team:** add the other HQ staff by phone (owner or staff).
 2. **Distributors → Naija Sweet Rice HQ:** enter HQ's bank account (customers of HQ pay into it, and distributors pay restock invoices into it).
@@ -90,7 +89,7 @@ Go to `https://yourdomain/ops` and sign in with a phone number from `HQ_OWNER_PH
 5. **Distributors → Gova Max Ltd** (and any others):
    - bank account;
    - areas;
-   - owner's phone number (they get an SMS invitation);
+   - owner's email address (they get an email invitation and sign in with it);
    - alert email;
    - send opening stock.
 6. **Alerts:** on the Distributors page, connect HQ's Telegram (§7). Ask each distributor to connect theirs under **Alerts** in the partner portal.
@@ -123,9 +122,11 @@ The job at `/api/cron/release-reservations` does several things:
 3. In `/ops/distributors`, press **Connect bot to site** (once), then **Connect my Telegram** or **Add to a staff group**.
 4. Press **Send test alert**.
 
-**Email (Resend)**
-1. Create an account and verify your domain (add the DNS records it shows).
-2. Set `RESEND_API_KEY`, `EMAIL_FROM` and `OPS_ALERT_EMAIL`.
+**Email (Resend): required, because sign-in codes go by email**
+1. Create an account and verify your domain (add the DNS records it shows, including the SPF and DKIM ones; this keeps codes out of spam).
+2. Set `RESEND_API_KEY`, `EMAIL_FROM` and `OPS_ALERT_EMAIL`, then redeploy. The site won't start without the first two.
+3. Sign in to `/ops` yourself to check a code arrives within a minute.
+4. Watch the volume: Resend's free plan allows about 100 emails a day (3,000 a month). Each order sends 2–5 emails and each sign-in 1. Move to the paid plan when the soft launch gets busier.
 
 **Google stock sheet** (a developer can do this in 10 minutes)
 1. In Google Cloud, create a project, enable the **Google Sheets API**, and create a **service account** with a JSON key.
@@ -147,15 +148,15 @@ The job at `/api/cron/release-reservations` does several things:
 
 Do one real order end to end, with a 1kg bag or a small order:
 
-1. On your phone, choose an area served by a distributor, order, and check the **SMS** with the bank details.
+1. On your phone, choose an area served by a distributor, order, and check the **email** with the bank details (look in spam too, and mark it "not spam").
 2. Transfer the money and tap **I've made the transfer**. The distributor's **Telegram** should get the alert.
-3. The distributor taps **Payment received**, then marks it out for delivery and delivered. Check the customer gets the SMS updates.
+3. The distributor taps **Payment received**, then marks it out for delivery and delivered. Check the customer gets the email updates.
 4. Check `/ops/reports`, the distributor's **My numbers**, and (if set up) the Google sheet.
 5. Try a replacement request on that order and approve it.
 
 ## Security review before launch (13 Nov 2026)
 
-Checked: every server action and API route checks who is signed in; distributors can only touch their own orders, stock, restocks, codes and staff; bank details and the HQ team are owner-only; claim photos are visible only to the customer and HQ; Telegram webhook and housekeeping secrets are compared in constant time; uploads are re-encoded with size and pixel limits; sign-in codes appear on screen only in development without an SMS key; the test-only rate-limit bypass is off in production.
+Checked: every server action and API route checks who is signed in; distributors can only touch their own orders, stock, restocks, codes and staff; bank details and the HQ team are owner-only; claim photos are visible only to the customer and HQ; Telegram webhook and housekeeping secrets are compared in constant time; uploads are re-encoded with size and pixel limits; sign-in codes appear on screen only in development without an email key; the test-only rate-limit bypass is off in production.
 
 Fixed in this review:
 - Rate limits used the visitor-supplied first `X-Forwarded-For` entry, so they could be dodged. Now they use the IP set by the host.
@@ -176,3 +177,13 @@ Fixed:
 - The network map hid its clickable areas from screen readers.
 
 After the fixes, no issues remain on any scanned page. Public pages load in about 0.6s locally and nothing scrolls sideways on a phone. Public pages are cached by the CDN, and signed-in pages are never cached.
+
+## Soft launch without SMS (16 Nov 2026)
+
+There is no SMS for the soft launch. Everything that used SMS now uses email:
+- **Sign-in** (customers, distributors, HQ) is by email address with a 6-digit code. The phone number is still asked for at checkout, because riders need it, and order tracking uses it. It is saved to the account after the first order.
+- **Customer messages** (payment details, payment received, status changes, replacement decisions, the sample follow-up coupon) go to the order's email.
+- **Team invitations** for HQ and distributor staff go by email.
+- **The bank-account-change alert** goes to the distributor by Telegram, and by email to the alert address and every owner.
+
+To add SMS later: add an SMS provider (e.g. Termii) as a second way to send the same sign-in code and customer messages (`src/lib/otp.ts`, `src/lib/notify.ts`). Phone sign-in would then need the account's phone number confirmed once by code.

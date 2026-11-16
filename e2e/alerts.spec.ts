@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
 import { db } from "./db";
-import { signInAs } from "./helpers";
+import { GOVA_OWNER, signInAs } from "./helpers";
 
 const SECRET = "e2e-telegram-secret";
 const start = (code: string, chatId: number) => ({ message: { text: `/start ${code}`, chat: { id: chatId, type: "private", first_name: "Musa" } } });
 
 test("a distributor connects Telegram for staff alerts, and the webhook rejects forgeries", async ({ page, request }) => {
-  const owner = await signInAs(page.context(), "08120003333");
+  const owner = await signInAs(page.context(), GOVA_OWNER);
   await page.goto("/partner/alerts");
   const href = await page.getByRole("link", { name: "Connect Telegram" }).getAttribute("href");
   const code = new URL(href!).searchParams.get("start")!;

@@ -51,7 +51,7 @@ async function Account() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-4xl font-bold">Hello{user.name ? `, ${user.name.split(" ")[0]}` : ""}</h1>
-          <p className="text-muted mt-1">{formatNgPhone(user.phone)}</p>
+          <p className="text-muted mt-1 break-all">{user.email}{user.phone ? ` · ${formatNgPhone(user.phone)}` : ""}</p>
         </div>
         <form action={signOut}><button className="text-sm text-muted underline">Sign out</button></form>
       </div>
@@ -153,7 +153,7 @@ async function Account() {
             <form action={applyAsAffiliate}><button className="btn-outline mt-4">Become an affiliate</button></form>
           </>
         ) : affiliate.status === "PENDING" ? (
-          <p className="mt-2 text-muted">Your application is under review. We&apos;ll text you when it&apos;s approved.</p>
+          <p className="mt-2 text-muted">Your application is under review. We&apos;ll email you when it&apos;s approved.</p>
         ) : affStats && (
           <>
             <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">

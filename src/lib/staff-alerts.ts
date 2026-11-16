@@ -9,7 +9,7 @@ import { site } from "./site";
  * connected, plus the distributor's alert email. HQ alerts go to HQ's Telegram
  * chat and OPS_ALERT_EMAIL. Never throws; returns how many deliveries worked.
  */
-export async function notifyDistributor(distributorId: string, subject: string, text: string): Promise<number> {
+export async function notifyDistributor(distributorId: string, subject: string, text: string, opts: { allOwners?: boolean } = {}): Promise<number> {
   try {
     const d = await db.distributor.findUnique({
       where: { id: distributorId },
@@ -18,9 +18,12 @@ export async function notifyDistributor(distributorId: string, subject: string, 
     if (!d) return 0;
     if (d.isHq) return alertHq(text, subject);
     const chats = d.members.flatMap((m) => m.user.telegramChats.map((c) => c.chatId));
+    // Email goes to the alert address; without one (or for critical alerts) to the owners' sign-in emails too.
+    const ownerEmails = d.members.filter((m) => m.role === "OWNER").map((m) => m.user.email);
+    const emails = [d.alertEmail, ...(!d.alertEmail || opts.allOwners ? ownerEmails : [])].filter((e): e is string => !!e);
     const results = await Promise.all([
       ...[...new Set(chats)].map((c) => sendTelegram(c, `${site.name}: ${text}`)),
-      ...(d.alertEmail ? [sendEmail(d.alertEmail, `${site.name}: ${subject}`, text)] : []),
+      ...[...new Set(emails)].map((e) => sendEmail(e, `${site.name}: ${subject}`, text)),
     ]);
     const sent = results.filter(Boolean).length;
     if (!sent) console.warn(`[staff-alert] ${d.name} has no Telegram or email connected; alert not delivered: ${subject}`);

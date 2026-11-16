@@ -10,7 +10,7 @@ export default function OpsLoginPage({ searchParams }: PageProps<"/ops/login">) 
   return (
     <div className="max-w-sm mx-auto mt-10">
       <h1 className="font-display text-2xl font-bold">HQ staff sign in</h1>
-      <p className="text-muted text-sm mt-1">For {site.name} HQ staff. Use your own phone number; we&apos;ll text you a code.</p>
+      <p className="text-muted text-sm mt-1">For {site.name} HQ staff. Use your own email address; we&apos;ll email you a code.</p>
       <div className="mt-6">
         <Suspense fallback={<div className="h-40" />}><Login searchParams={searchParams} /></Suspense>
       </div>

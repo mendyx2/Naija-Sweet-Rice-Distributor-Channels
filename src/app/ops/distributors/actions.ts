@@ -5,10 +5,11 @@ import { refresh, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireOps } from "@/lib/ops-auth";
-import { normalizeNgPhone, maskPhone } from "@/lib/phone";
+import { normalizeNgPhone } from "@/lib/phone";
 import { makeReferralCode } from "@/lib/auth";
 import { dispatchBags, RestockError } from "@/lib/restock";
-import { sendSms } from "@/lib/sms";
+import { notifyPerson } from "@/lib/notify";
+import { maskEmail, normalizeEmail } from "@/lib/email-address";
 import { alertHq, notifyDistributor } from "@/lib/staff-alerts";
 import { isTelegramConfigured, registerWebhook } from "@/lib/telegram";
 import { site } from "@/lib/site";
@@ -74,7 +75,7 @@ const bank = z.object({
 
 /**
  * Only HQ can set where customers pay. Every change is logged and the
- * distributor is alerted by SMS, so a hijacked login can't redirect payments.
+ * distributor's owners are alerted (Telegram and email), so a hijacked login can't quietly redirect payments.
  */
 export async function updateBankDetails(_prev: FormState, formData: FormData): Promise<FormState> {
   const actor = await requireOps({ ownerOnly: true });
@@ -92,12 +93,14 @@ export async function updateBankDetails(_prev: FormState, formData: FormData): P
         after: { bankName: parsed.data.bankName, accountNumber: masked(parsed.data.accountNumber), accountName: parsed.data.accountName } },
     }),
   ]);
-  const alertTo = [d.phone, ...d.members.map((m) => m.user.phone)].filter((p): p is string => !!p && p.startsWith("+"));
-  for (const to of new Set(alertTo)) {
-    await sendSms(to, `${site.name}: the bank account customers pay ${d.name} into was changed to ${parsed.data.bankName} ******${parsed.data.accountNumber.slice(-4)}. If you didn't request this, call HQ now.`);
-  }
+  const alerted = await notifyDistributor(
+    id,
+    "bank account changed",
+    `The bank account customers pay ${d.name} into was changed to ${parsed.data.bankName} ******${parsed.data.accountNumber.slice(-4)}. If you didn't request this, call HQ now.`,
+    { allOwners: true },
+  );
   refresh();
-  return { ok: true, message: `Bank details saved.${alertTo.length ? ` ${d.name} has been alerted by SMS.` : ""}` };
+  return { ok: true, message: `Bank details saved.${alerted ? ` ${d.name} has been alerted.` : ` ${d.name} has no Telegram or email to alert yet.`}` };
 }
 
 /** One distributor per area: assigning an area moves it from any previous owner. */
@@ -135,26 +138,26 @@ export async function updateAreas(_prev: FormState, formData: FormData): Promise
 export async function addMember(_prev: FormState, formData: FormData): Promise<FormState> {
   const actor = await requireOps();
   const id = String(formData.get("id") ?? "");
-  const phone = normalizeNgPhone(String(formData.get("phone") ?? ""));
+  const email = normalizeEmail(String(formData.get("email") ?? ""));
   const role = formData.get("role") === "OWNER" ? "OWNER" : "STAFF";
   const name = String(formData.get("name") ?? "").trim().slice(0, 80) || null;
-  if (!phone) return { ok: false, message: "Enter a valid Nigerian mobile number." };
+  if (!email) return { ok: false, message: "Enter a valid email address." };
   const d = await db.distributor.findUnique({ where: { id } });
   if (!d) return { ok: false, message: "Distributor not found." };
-  const user = (await db.user.findUnique({ where: { phone }, include: { distributorMember: true } }))
-    ?? (await db.user.create({ data: { phone, name, referralCode: makeReferralCode(name) }, include: { distributorMember: true } }));
+  const user = (await db.user.findUnique({ where: { email }, include: { distributorMember: true } }))
+    ?? (await db.user.create({ data: { email, name, referralCode: makeReferralCode(name) }, include: { distributorMember: true } }));
   if (user.roles.includes("OWNER") || user.roles.includes("STAFF")) {
-    return { ok: false, message: `${maskPhone(phone)} is HQ staff and can't also join a distributor team.` };
+    return { ok: false, message: `${maskEmail(email)} is HQ staff and can't also join a distributor team.` };
   }
   if (user.distributorMember && user.distributorMember.distributorId !== id) {
-    return { ok: false, message: `${maskPhone(phone)} already belongs to another distributor.` };
+    return { ok: false, message: `${maskEmail(email)} already belongs to another distributor.` };
   }
   await db.distributorMember.upsert({ where: { userId: user.id }, create: { userId: user.id, distributorId: id, role }, update: { role } });
   if (name && !user.name) await db.user.update({ where: { id: user.id }, data: { name } });
   await db.auditLog.create({ data: { actor, action: "distributor.member_add", entity: "Distributor", entityId: id, after: { userId: user.id, role } } });
-  await sendSms(phone, `${site.name}: you've been added to ${d.name} on the ${site.name} partner portal. Sign in with this number at ${site.url}/partner`);
+  await notifyPerson(email, `you've been added to ${d.name}`, `You've been added to ${d.name} on the ${site.name} partner portal. Sign in with this email address at ${site.url}/partner`);
   refresh();
-  return { ok: true, message: `Added ${maskPhone(phone)} as ${role.toLowerCase()}. They've been sent a sign-in link.` };
+  return { ok: true, message: `Added ${maskEmail(email)} as ${role.toLowerCase()}. They've been emailed a sign-in link.` };
 }
 
 export async function removeMember(formData: FormData) {

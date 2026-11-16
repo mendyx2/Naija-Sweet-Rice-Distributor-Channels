@@ -1,6 +1,6 @@
 import type { OrderStatus } from "@prisma/client";
 
-export const STATUS_SMS: Partial<Record<OrderStatus, string>> = {
+export const STATUS_MESSAGE: Partial<Record<OrderStatus, string>> = {
   PROCESSING: "is being prepared.",
   READY_FOR_PICKUP: "is ready for pickup at our flagship store.",
   OUT_FOR_DELIVERY: "is on its way to you.",

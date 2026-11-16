@@ -22,11 +22,11 @@ export default function PrivacyPage() {
       </section>
       <section>
         <h2 className="font-display text-xl font-bold text-brand">Why we use it</h2>
-        <p className="mt-2">To deliver your orders, send order updates and login codes by SMS, run purchase points and referrals, handle bag replacements, prevent fraud and, if you agree, measure and improve our marketing.</p>
+        <p className="mt-2">To deliver your orders, send order updates and sign-in codes by email, run purchase points and referrals, handle bag replacements, prevent fraud and, if you agree, measure and improve our marketing.</p>
       </section>
       <section>
         <h2 className="font-display text-xl font-bold text-brand">Who we share it with</h2>
-        <p className="mt-2">Only who we need to run the store: the authorised distributor who fulfils your order (your name, phone, address and order), our SMS provider (codes and updates), delivery partners (name, phone and address for your delivery) and, with your consent, Google and Meta (analytics). We don&apos;t sell your data.</p>
+        <p className="mt-2">Only who we need to run the store: the authorised distributor who fulfils your order (your name, phone, address and order), our email provider (codes and updates), delivery partners (name, phone and address for your delivery) and, with your consent, Google and Meta (analytics). We don&apos;t sell your data.</p>
       </section>
       <section>
         <h2 className="font-display text-xl font-bold text-brand">Your rights</h2>

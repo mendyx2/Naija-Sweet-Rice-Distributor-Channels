@@ -8,7 +8,7 @@ import { TAGS } from "@/lib/catalogue";
 import { nairaToKobo } from "@/lib/money";
 import { requireOps } from "@/lib/ops-auth";
 import { CheckoutError, createPendingOrder, markOrderPaid } from "@/lib/orders";
-import { sendSms } from "@/lib/sms";
+import { notifyClaimDecision, notifyPerson } from "@/lib/notify";
 import { site } from "@/lib/site";
 import { HQ_ID, currentHqFees } from "@/lib/network";
 import { moveStock } from "@/lib/stock";
@@ -210,11 +210,12 @@ export async function reviewSeller(formData: FormData) {
     }),
     db.auditLog.create({ data: { actor, action: `seller.${decision.toLowerCase()}`, entity: "SellerProfile", entityId: userId } }),
   ]);
-  await sendSms(
-    profile.user.phone,
+  await notifyPerson(
+    profile.user.email,
+    decision === "APPROVED" ? "seller account approved" : "your seller application",
     decision === "APPROVED"
-      ? `${site.name}: your seller account for ${profile.businessName} is approved. Wholesale prices now show when you sign in.`
-      : `${site.name}: we couldn't approve your seller application for ${profile.businessName}. Please call us for details.`,
+      ? `Your seller account for ${profile.businessName} is approved. Wholesale prices now show when you sign in.`
+      : `We couldn't approve your seller application for ${profile.businessName}. Please contact us for details.`,
   );
   refresh();
 }
@@ -237,7 +238,7 @@ export async function reviewClaim(_prev: FormState, formData: FormData): Promise
       db.returnClaim.update({ where: { id: claim.id }, data: { status: "REJECTED", resolutionNote: note } }),
       db.auditLog.create({ data: { actor, action: "claim.rejected", entity: "ReturnClaim", entityId: claim.id, after: { note } } }),
     ]);
-    await sendSms(order.contactPhone, `${site.name}: we couldn't approve your replacement request for order ${order.number}. ${note}`);
+    await notifyClaimDecision(order, false, note);
     refresh();
     return { ok: true, message: "Claim rejected and customer notified." };
   }
@@ -277,10 +278,7 @@ export async function reviewClaim(_prev: FormState, formData: FormData): Promise
     db.returnClaim.update({ where: { id: claim.id }, data: { status: "REPLACEMENT_SCHEDULED", resolutionNote: note, replacementOrderId: replacement.id } }),
     db.auditLog.create({ data: { actor, action: "claim.approved", entity: "ReturnClaim", entityId: claim.id, after: { replacement: replacement.number } } }),
   ]);
-  await sendSms(
-    order.contactPhone,
-    `${site.name}: your replacement for order ${order.number} is approved. We'll bring ${claim.qty} new ${item.sizeKg}kg bag(s) and collect the damaged one(s). Track: ${replacement.number}`,
-  );
+  await notifyClaimDecision(order, true, `We'll bring ${claim.qty} new ${item.sizeKg}kg bag(s) and collect the damaged one(s). Follow the replacement at ${site.url}/orders/${replacement.number}`);
   refresh();
   return { ok: true, message: `Approved. Replacement order ${replacement.number} is in the Orders list.` };
 }
@@ -299,11 +297,12 @@ export async function reviewAffiliate(formData: FormData) {
     db.user.update({ where: { id: userId }, data: { roles } }),
     db.auditLog.create({ data: { actor, action: `affiliate.${decision.toLowerCase()}`, entity: "AffiliateProfile", entityId: userId } }),
   ]);
-  await sendSms(
-    profile.user.phone,
+  await notifyPerson(
+    profile.user.email,
+    decision === "APPROVED" ? "you're now an affiliate" : "your affiliate application",
     decision === "APPROVED"
-      ? `${site.name}: you're now an affiliate! Your links are in My account. Share them to earn points.`
-      : `${site.name}: we couldn't approve your affiliate application this time.`,
+      ? `You're now an affiliate! Your links are in My account. Share them to earn points.`
+      : `We couldn't approve your affiliate application this time.`,
   );
   refresh();
 }

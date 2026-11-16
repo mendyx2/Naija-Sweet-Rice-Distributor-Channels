@@ -1,36 +1,36 @@
 import { expect, test } from "@playwright/test";
 import { db } from "./db";
-import { loginWithCode, newPhone, signInAs, statusText } from "./helpers";
+import { GOVA_OWNER, HQ_OWNER, loginWithCode, newEmail, signInAs, statusText } from "./helpers";
 
 test.describe.configure({ mode: "serial" });
 
 test("customers can't open HQ screens", async ({ page }) => {
-  await signInAs(page.context(), newPhone());
+  await signInAs(page.context(), newEmail());
   await page.goto("/ops/prices");
   await expect(page.getByText("doesn't have HQ access")).toBeVisible();
 });
 
-test("the HQ owner signs in with an SMS code and manages the team; staff have limited access", async ({ page, browser }) => {
+test("the HQ owner signs in with an email code and manages the team; staff have limited access", async ({ page, browser }) => {
   await page.context().addInitScript(() => localStorage.setItem("nsr_consent", "denied"));
   await page.goto("/ops/login");
-  await loginWithCode(page, "0801 111 2222"); // in HQ_OWNER_PHONES
+  await loginWithCode(page, HQ_OWNER); // in HQ_OWNER_EMAILS
   await page.waitForURL("**/ops/orders");
   await expect(page.getByRole("link", { name: "HQ team" })).toBeVisible();
 
-  const staffPhone = newPhone();
+  const staffEmail = newEmail("ada");
   await page.goto("/ops/team");
   await page.getByLabel("Name").fill("Ada Obi");
-  await page.getByLabel("Mobile number").fill(staffPhone);
+  await page.getByLabel("Email address").fill(staffEmail);
   await page.getByRole("button", { name: "Give HQ access" }).click();
   await expect(statusText(page, /added as staff/)).toBeVisible();
 
   await page.getByLabel("Name").fill("Musa");
-  await page.getByLabel("Mobile number").fill("08120003333"); // Gova Max owner
+  await page.getByLabel("Email address").fill(GOVA_OWNER); // Gova Max owner
   await page.getByRole("button", { name: "Give HQ access" }).click();
   await expect(statusText(page, /distributor team/)).toBeVisible();
 
   const sctx = await browser.newContext();
-  await signInAs(sctx, staffPhone);
+  await signInAs(sctx, staffEmail);
   const staff = await sctx.newPage();
   await staff.goto("/ops/orders");
   await expect(staff.getByRole("heading", { name: "Orders" })).toBeVisible();
@@ -50,7 +50,7 @@ test("the HQ owner signs in with an SMS code and manages the team; staff have li
 });
 
 test("the network map shows who covers each area, with a table of the same facts", async ({ page, context }) => {
-  await signInAs(context, "0801 111 2222", { name: "HQ Owner", roles: ["OWNER"] });
+  await signInAs(context, HQ_OWNER, { name: "HQ Owner", roles: ["OWNER"] });
   await page.goto("/ops/network");
   await expect(page.getByRole("heading", { name: "Network map" })).toBeVisible();
   await expect(page.getByRole("group", { name: /Schematic map of Abuja/ })).toBeVisible();

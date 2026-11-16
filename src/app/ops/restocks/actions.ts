@@ -35,7 +35,7 @@ export async function opsInvoiceRestock(_prev: FormState, formData: FormData): P
   };
   return run(async () => {
     const total = await invoiceRestock(id, read("qty"), read("free"), actor);
-    return total > 0 ? `Invoice sent for ${formatNaira(total)}. The distributor has the bank details by SMS.` : "No payment needed (free bags only). Ready to dispatch.";
+    return total > 0 ? `Invoice sent for ${formatNaira(total)}. The distributor has been sent the bank details.` : "No payment needed (free bags only). Ready to dispatch.";
   });
 }
 

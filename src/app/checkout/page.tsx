@@ -33,7 +33,7 @@ async function Checkout({ searchParams }: Pick<PageProps<"/checkout">, "searchPa
           <p className="text-sm font-semibold text-brand">Step 1 of 2</p>
           <h2 className="font-display text-2xl font-bold mt-1">Confirm your phone number</h2>
           <p className="mt-2 text-muted">
-            We&apos;ll text you a code. Your number is used for delivery updates, and your purchase points are saved to it.
+            We&apos;ll email you a 6-digit code. Your account keeps your orders and purchase points.
           </p>
           <div className="mt-6"><OtpForm next={next} /></div>
         </section>
@@ -46,7 +46,7 @@ async function Checkout({ searchParams }: Pick<PageProps<"/checkout">, "searchPa
       zones={zones.map((z) => ({ id: z.id, name: z.name, kind: z.kind }))}
       initialZoneId={zones.some((z) => z.id === zoneId) ? zoneId : ""}
       initialCoupon={coupon}
-      defaults={{ name: user.name ?? "", phone: formatNgPhone(user.phone), email: user.email ?? "" }}
+      defaults={{ name: user.name ?? "", phone: user.phone ? formatNgPhone(user.phone) : "", email: user.email ?? "" }}
     />
   );
 }

@@ -1,10 +1,10 @@
 import { Suspense } from "react";
 import { db } from "@/lib/db";
 import { requirePartner } from "@/lib/partner-auth";
-import { formatNgPhone } from "@/lib/phone";
 import { ActionForm } from "@/components/action-form";
 import { PartnerNav } from "../partner-nav";
 import { addStaff, removeStaff } from "../actions";
+import { contactLabel } from "@/lib/people";
 
 export default function StaffPage() {
   return <Suspense fallback={<p className="text-muted">Loading…</p>}><Staff /></Suspense>;
@@ -21,7 +21,7 @@ async function Staff() {
       <ul className="mt-4 card divide-y divide-border text-sm">
         {members.map((m) => (
           <li key={m.userId} className="flex items-center justify-between gap-3 p-4">
-            <span>{m.user.name ?? "No name"} · {formatNgPhone(m.user.phone)} <span className="ml-1 text-xs text-muted">{m.role === "OWNER" ? "Owner" : "Staff"}{m.userId === user.id ? " (you)" : ""}</span></span>
+            <span>{m.user.name ?? "No name"} · <span className="break-all">{contactLabel(m.user)}</span> <span className="ml-1 text-xs text-muted">{m.role === "OWNER" ? "Owner" : "Staff"}{m.userId === user.id ? " (you)" : ""}</span></span>
             {m.role === "STAFF" && (
               <form action={removeStaff}><input type="hidden" name="userId" value={m.userId} /><button className="text-danger underline">Remove</button></form>
             )}
@@ -32,7 +32,7 @@ async function Staff() {
         <h2 className="font-semibold text-lg">Add a staff member</h2>
         <ActionForm action={addStaff} submit="Add staff" className="mt-3 space-y-3 text-sm">
           <label className="block"><span className="font-semibold">Name</span><input name="name" className="field" /></label>
-          <label className="block"><span className="font-semibold">Mobile number</span><input name="phone" type="tel" required className="field" /></label>
+          <label className="block"><span className="font-semibold">Email address</span><input name="email" type="email" autoComplete="off" required className="field" /></label>
         </ActionForm>
       </section>
     </>

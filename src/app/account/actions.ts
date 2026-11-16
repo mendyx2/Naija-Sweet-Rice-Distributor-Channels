@@ -50,7 +50,7 @@ export async function applyAsSeller(_prev: FormState, formData: FormData): Promi
     }),
   ]);
   refresh();
-  return { ok: true, message: "Application received. We'll review it and text you when it's approved." };
+  return { ok: true, message: "Application received. We'll review it and email you when it's approved." };
 }
 
 export async function redeem(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -114,7 +114,7 @@ export async function deleteAccount(_prev: FormState, formData: FormData): Promi
     db.claimPhoto.deleteMany({ where: { claim: { userId: user.id } } }),
     db.user.update({
       where: { id: user.id },
-      data: { phone: `deleted-${user.id}`, name: null, email: null, passwordHash: null, roles: ["BUYER"] },
+      data: { phone: null, name: null, email: null, passwordHash: null, roles: ["BUYER"] },
     }),
     db.auditLog.create({ data: { actor: user.id, action: "account.deleted", entity: "User", entityId: user.id } }),
   ]);

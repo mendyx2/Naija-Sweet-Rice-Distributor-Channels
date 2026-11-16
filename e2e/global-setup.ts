@@ -57,11 +57,11 @@ export default async function globalSetup() {
   for (const [kg, qty] of [[50, 10], [25, 4], [5, 0], [1, 5]] as const) {
     await db.distributorStock.update({ where: { distributorId_variantId: { distributorId: gova.id, variantId: v[kg].id } }, data: { onHand: qty, held: 0, inTransit: 0 } });
   }
-  const owner = await db.user.upsert({
-    where: { phone: "+2348120003333" },
-    create: { phone: "+2348120003333", name: "Musa Gova", referralCode: "GOVAOWNER1" },
-    update: { roles: ["BUYER"] },
-  });
+  // Gova's owner signs in with email; an older test database may have them saved by phone only.
+  const existing = await db.user.findFirst({ where: { OR: [{ email: "musa@govamax.test" }, { phone: "+2348120003333" }] } });
+  const owner = existing
+    ? await db.user.update({ where: { id: existing.id }, data: { email: "musa@govamax.test", phone: "+2348120003333", roles: ["BUYER"] } })
+    : await db.user.create({ data: { email: "musa@govamax.test", phone: "+2348120003333", name: "Musa Gova", referralCode: "GOVAOWNER1" } });
   await db.distributorMember.upsert({ where: { userId: owner.id }, create: { userId: owner.id, distributorId: gova.id, role: "OWNER" }, update: { distributorId: gova.id, role: "OWNER" } });
 
   // Leftovers from an interrupted earlier run

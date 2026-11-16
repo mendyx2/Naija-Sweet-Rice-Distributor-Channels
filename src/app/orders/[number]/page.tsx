@@ -60,7 +60,7 @@ async function Order({ params }: Pick<PageProps<"/orders/[number]">, "params">) 
           <p className="text-cta font-semibold">Thank you{order.customerName ? `, ${order.customerName.split(" ")[0]}` : ""}!</p>
           <h1 className="font-display text-3xl sm:text-4xl font-bold mt-1">{order.totalKobo > 0 ? "Payment confirmed" : "Your order is confirmed"}</h1>
           <p className="mt-2 text-white/85">
-            We&apos;ve sent an SMS to {formatNgPhone(order.contactPhone)}. We&apos;ll text you again when it&apos;s {isPickup ? "ready for pickup" : "on its way"}.
+            {order.contactEmail ? <>We&apos;ve emailed {order.contactEmail}. </> : null}We&apos;ll email you again when it&apos;s {isPickup ? "ready for pickup" : "on its way"}, and this page always shows the latest.
           </p>
         </div>
       )}

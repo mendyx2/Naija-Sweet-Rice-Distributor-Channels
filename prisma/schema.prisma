@@ -29,8 +29,8 @@ enum ApprovalStatus {
 
 model User {
   id           String   @id @default(cuid())
-  phone        String   @unique // E.164, e.g. +2348012345678
-  email        String?  @unique
+  phone        String?   @unique // E.164, e.g. +2348012345678. Taken from the first order; not used to sign in
+  email        String?  @unique // lower-case; used to sign in (email code)
   name         String?
   passwordHash String?
   roles        Role[]   @default([BUYER])
@@ -69,7 +69,7 @@ model Session {
 /// One-time login codes sent by SMS. Only an HMAC of the code is stored.
 model OtpCode {
   id         String    @id @default(cuid())
-  phone      String
+  email      String
   codeHash   String
   attempts   Int       @default(0)
   expiresAt  DateTime
@@ -77,7 +77,7 @@ model OtpCode {
   ipHash     String?
   createdAt  DateTime  @default(now())
 
-  @@index([phone, createdAt])
+  @@index([email, createdAt])
 }
 
 model SellerProfile {
