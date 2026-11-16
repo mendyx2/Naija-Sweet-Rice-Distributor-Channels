@@ -26,6 +26,14 @@ test("a distributor opens a store; it stays hidden until HQ approves it and adds
   const store = await db.distributor.findFirstOrThrow({ where: { name } });
   expect(store).toMatchObject({ status: "PENDING", pickupEnabled: true, joinsHqPromotions: false, accountNumber: "0691234567" });
 
+  // While waiting, the owner corrects their own shop details and bank account.
+  const shop = page.locator("section", { has: page.getByRole("heading", { name: "Shop details" }) });
+  await shop.getByLabel("Shop address").fill("Shop 14, Utako Market, Abuja");
+  await shop.getByLabel("Account number").fill("0691234568");
+  await shop.getByRole("button", { name: "Save shop details" }).click();
+  await expect(statusText(page, /Shop details saved/)).toBeVisible();
+  expect(await db.distributor.findUniqueOrThrow({ where: { id: store.id } })).toMatchObject({ address: "Shop 14, Utako Market, Abuja", accountNumber: "0691234568" });
+
   // Set a price while waiting (inside HQ's 50kg range of ₦83,000–₦88,000).
   await page.getByLabel("50kg retail price").fill("83500");
   await page.getByRole("button", { name: "Save prices" }).click();
@@ -57,6 +65,10 @@ test("a distributor opens a store; it stays hidden until HQ approves it and adds
   await expect(statusText(ops, /Dispatched 8 × 50kg/)).toBeVisible();
 
   // 4. The distributor confirms the delivery; the store is now live in Gwarinpa
+  // After approval the bank account can only be changed by HQ.
+  await page.goto("/partner/settings");
+  await expect(page.getByText("only HQ can change this now")).toBeVisible();
+  await expect(page.getByLabel("Account number")).toHaveCount(0);
   await page.goto("/partner/stock");
   await expect(page.getByText("Your store is waiting for HQ approval.")).toHaveCount(0);
   await page.getByRole("button", { name: "Confirm received" }).click();

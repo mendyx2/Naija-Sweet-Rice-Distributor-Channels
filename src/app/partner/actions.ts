@@ -16,6 +16,7 @@ import { makeReferralCode } from "@/lib/auth";
 import { notifyPerson } from "@/lib/notify";
 import { maskEmail, normalizeEmail } from "@/lib/email-address";
 import { site } from "@/lib/site";
+import { normalizeNgPhone as normalizePhone } from "@/lib/phone";
 import { TAGS } from "@/lib/catalogue";
 
 export type FormState = { ok: boolean; message: string } | null;
@@ -242,6 +243,60 @@ export async function saveStoreOptions(_prev: FormState, formData: FormData): Pr
   updateTag(TAGS.zones);
   refresh();
   return { ok: true, message: `Saved. Pickup ${data.pickupEnabled ? "on" : "off"}; Naija Sweet Rice promotions ${data.joinsHqPromotions ? "accepted" : "not accepted"}.` };
+}
+
+const shopDetails = z.object({
+  phone: z.string().trim().max(30),
+  address: z.string().trim().min(8, "Enter your shop address (customers who pick up go here).").max(200),
+  hours: z.string().trim().max(80).optional(),
+  homeZoneId: z.string().max(40),
+  newHomeArea: z.string().max(80).optional(),
+  bankName: z.string().trim().max(60).optional(),
+  accountNumber: z.string().trim().max(20).optional(),
+  accountName: z.string().trim().max(100).optional(),
+});
+
+/**
+ * The distributor keeps its own shop details up to date: phone, address, hours
+ * and the area the shop is in (within its state). The bank account can be
+ * corrected here only while the store waits for approval; after that only HQ
+ * changes it, so a hijacked login can't redirect customers' payments.
+ */
+export async function saveShopDetails(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { distributor, actor } = await requirePartner({ ownerOnly: true });
+  const parsed = shopDetails.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
+  const f = parsed.data;
+  const phone = normalizePhone(f.phone);
+  if (!phone) return { ok: false, message: "Enter a valid Nigerian phone number for the shop." };
+
+  const current = distributor.homeZoneId ? await db.deliveryZone.findUnique({ where: { id: distributor.homeZoneId } }) : null;
+  const state = current?.state ?? "FCT";
+  const typed = (f.newHomeArea ?? "").trim();
+  const home = typed
+    ? await findOrCreateArea(typed, state)
+    : await db.deliveryZone.findFirst({ where: { id: f.homeZoneId, state, active: true, kind: { not: "PICKUP" } } });
+  if (!home) return { ok: false, message: typed ? "Please check the new area's name." : "Choose the area your shop is in." };
+
+  const data: Record<string, unknown> = { phone, address: f.address, hours: f.hours || null, homeZoneId: home.id };
+  if (distributor.status === "PENDING") {
+    if (!/^\d{10}$/.test(f.accountNumber ?? "")) return { ok: false, message: "Account numbers (NUBAN) have 10 digits." };
+    if ((f.bankName ?? "").length < 2 || (f.accountName ?? "").length < 3) return { ok: false, message: "Enter the bank name and the account name exactly as the bank shows it." };
+    Object.assign(data, { bankName: f.bankName, accountNumber: f.accountNumber, accountName: f.accountName, bankUpdatedAt: new Date() });
+  }
+  await db.distributor.update({ where: { id: distributor.id }, data });
+  await db.auditLog.create({
+    data: { actor, action: "partner.shop_details", entity: "Distributor", entityId: distributor.id,
+      before: { address: distributor.address, phone: distributor.phone, homeZoneId: distributor.homeZoneId },
+      after: { address: f.address, phone, homeZoneId: home.id, bankChanged: "bankName" in data } },
+  });
+  // HQ hears about a live store moving, since customers collect from this address.
+  if (distributor.status === "ACTIVE" && (distributor.address !== f.address || distributor.homeZoneId !== home.id)) {
+    await alertHq(`${distributor.name} changed its shop address to: ${f.address} (${home.name}, ${home.state}).`, "Store address changed");
+  }
+  updateTag(TAGS.zones);
+  refresh();
+  return { ok: true, message: "Shop details saved." };
 }
 
 // ─── Staff (owners) ─────────────────────────────────────────────────────────
