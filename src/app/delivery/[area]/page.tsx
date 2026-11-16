@@ -14,12 +14,12 @@ import { Price } from "@/components/price";
 /** One page per delivery area, e.g. /delivery/gwarinpa, for "rice delivery in <area>" searches. */
 export async function generateStaticParams() {
   const zones = await getZones();
-  return zones.filter((z) => z.kind !== "PICKUP").map((z) => ({ area: z.slug }));
+  return zones.filter((z) => z.kind === "ABUJA" || z.kind === "NEARBY_TOWN").map((z) => ({ area: z.slug }));
 }
 
 async function findZone(slug: string) {
   const zones = await getZones();
-  const zone = zones.find((z) => z.slug === slug && z.kind !== "PICKUP");
+  const zone = zones.find((z) => z.slug === slug && (z.kind === "ABUJA" || z.kind === "NEARBY_TOWN"));
   return { zone, zones };
 }
 

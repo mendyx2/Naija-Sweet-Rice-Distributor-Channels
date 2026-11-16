@@ -22,8 +22,8 @@ async function buildOffer(d: Distributor, zone: DeliveryZone | null): Promise<Of
   const stockBy = new Map(stock.map((s) => [s.variantId, Math.max(s.onHand - s.held, 0)]));
   const priceBy = new Map(prices.map((p) => [p.variantId, p]));
 
-  // HQ delivers to every active area at HQ's own fees; other stores to the areas they've set a fee for.
-  const zoneFee: OfferFee | null = !zone || !zone.active || zone.kind === "PICKUP"
+  // HQ delivers to its own areas (Abuja and nearby towns) at HQ's fees; other stores to the areas they've set a fee for.
+  const zoneFee: OfferFee | null = !zone || !zone.active || zone.kind === "PICKUP" || (d.isHq && zone.kind === "AREA")
     ? null
     : d.isHq
       ? { baseFeeKobo: zone.baseFeeKobo, perKgFeeKobo: zone.perKgFeeKobo, minOrderKg: zone.minOrderKg, minOrderKobo: zone.minOrderKobo, etaHours: zone.etaHours, terms: zone.terms }
@@ -61,8 +61,8 @@ export async function getHq(): Promise<Distributor> {
 }
 
 /**
- * Every approved store a customer in this area can buy from: HQ (it delivers to
- * every open area), each distributor that has set a delivery fee for the area,
+ * Every approved store a customer in this area can buy from: HQ (in its own
+ * Abuja-region areas), each distributor that has set a delivery fee for the area,
  * and any store whose shop is in the area and offers pickup.
  * Sorted for the chosen size; see sortStores.
  */

@@ -24,7 +24,7 @@ async function Zones() {
       </p>
       <ZoneForm
         zones={zones.map((z) => ({
-          id: z.id, name: z.name, kind: z.kind, baseFeeKobo: z.baseFeeKobo, perKgFeeKobo: z.perKgFeeKobo,
+          id: z.id, name: z.kind === "AREA" || z.state !== "FCT" ? `${z.name} (${z.state})` : z.name, kind: z.kind, baseFeeKobo: z.baseFeeKobo, perKgFeeKobo: z.perKgFeeKobo,
           minOrderKg: z.minOrderKg, minOrderKobo: z.minOrderKobo, terms: z.terms, active: z.active,
         }))}
       />

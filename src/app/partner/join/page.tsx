@@ -8,6 +8,7 @@ import { formatNgPhone } from "@/lib/phone";
 import { site } from "@/lib/site";
 import { ActionForm } from "@/components/action-form";
 import { openStore } from "./actions";
+import { JoinAreas } from "./join-areas";
 
 export const metadata: Metadata = {
   title: "Open a store",
@@ -65,12 +66,6 @@ async function Join() {
           </div>
           <p className="text-muted">One store per distributor: the shop customers collect from.</p>
           <label className="block"><span className="font-semibold">Shop address</span><textarea name="address" rows={2} required maxLength={200} placeholder="Shop number, market or street, area" className="field" /></label>
-          <label className="block"><span className="font-semibold">Area your shop is in</span>
-            <select name="homeZoneId" required defaultValue="" className="field">
-              <option value="" disabled>Choose…</option>
-              {zones.map((z) => <option key={z.id} value={z.id}>{z.name}</option>)}
-            </select>
-          </label>
           <label className="block"><span className="font-semibold">Opening hours <span className="font-normal text-muted">(optional)</span></span><input name="hours" maxLength={80} placeholder="e.g. Mon–Sat 8am–6pm" className="field" /></label>
         </fieldset>
 
@@ -86,16 +81,8 @@ async function Join() {
 
         <fieldset className="card p-5 space-y-3 text-sm">
           <legend className="sr-only">Delivery and pickup</legend>
-          <h2 className="font-semibold text-base">Where you deliver</h2>
-          <p className="text-muted">Tick every area you deliver to. Other stores may serve the same areas; customers choose.</p>
-          <div className="grid gap-2 sm:grid-cols-3">
-            {zones.map((z) => (
-              <label key={z.id} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 has-[:checked]:border-brand has-[:checked]:bg-brand-soft">
-                <input type="checkbox" name="zone" value={z.id} className="h-4 w-4 accent-[var(--brand)]" />
-                <span>{z.name}{z.kind === "NEARBY_TOWN" && <span className="block text-xs text-muted">town, min. order</span>}</span>
-              </label>
-            ))}
-          </div>
+          <h2 className="font-semibold text-base">Where you are and where you deliver</h2>
+          <JoinAreas areas={zones.map((z) => ({ id: z.id, name: z.name, kind: z.kind, state: z.state }))} />
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block"><span className="font-semibold">Delivery fee per order ₦</span><input name="baseFee" inputMode="decimal" defaultValue="1500" className="field" /></label>
             <label className="block"><span className="font-semibold">Plus per kg ₦</span><input name="perKgFee" inputMode="decimal" defaultValue="20" className="field" /></label>

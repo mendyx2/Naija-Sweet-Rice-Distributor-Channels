@@ -17,7 +17,7 @@ export type QuoteVariant = {
 export type QuoteZone = {
   id: string;
   name: string;
-  kind: "PICKUP" | "ABUJA" | "NEARBY_TOWN";
+  kind: "PICKUP" | "ABUJA" | "NEARBY_TOWN" | "AREA";
   baseFeeKobo: number;
   perKgFeeKobo: number;
   minOrderKg: number | null;

@@ -26,7 +26,7 @@ export function AreaPicker({ zones }: { zones: ZoneOption[] }) {
         type="button"
         onClick={() => { setDraft(zoneId); dialog.current?.showModal(); }}
         className="inline-flex max-w-[7.5rem] sm:max-w-[11rem] items-center gap-1 rounded-full px-2 sm:px-3 py-1.5 text-sm hover:bg-brand-soft"
-        aria-label={zone ? `Delivering to ${zone.name}. Change area` : "Choose your delivery area"}
+        aria-label={zone ? `Your area: ${zone.name}. Change area` : "Choose your area"}
       >
         <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-brand" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
           <path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" />
@@ -39,9 +39,9 @@ export function AreaPicker({ zones }: { zones: ZoneOption[] }) {
           className="p-5"
           onSubmit={() => { if (draft) setZone(draft); }}
         >
-          <h2 className="font-display text-xl font-bold">Where should we deliver?</h2>
-          <p className="mt-1 text-sm text-muted">Prices, stock and delivery fees come from the seller who covers your area.</p>
-          <label htmlFor="area-picker" className="sr-only">Delivery area</label>
+          <h2 className="font-display text-xl font-bold">Where are you?</h2>
+          <p className="mt-1 text-sm text-muted">Choose your state and area to see the stores near you. Each store sets its own prices and delivery fee.</p>
+          <label htmlFor="area-picker" className="sr-only">Your area</label>
           <ZoneSelect id="area-picker" zones={zones} value={draft} onChange={setDraft} />
           <div className="mt-4 flex justify-end gap-2">
             <button type="button" onClick={() => dialog.current?.close()} className="rounded-full px-4 py-2 text-sm font-semibold hover:bg-background">Cancel</button>

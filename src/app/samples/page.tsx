@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { getZones } from "@/lib/catalogue";
+import { getShoppingAreas } from "@/lib/catalogue";
 import { formatNgPhone } from "@/lib/phone";
 import { site } from "@/lib/site";
 import { BagImage } from "@/components/bag-image";
@@ -67,7 +67,7 @@ async function SampleContent() {
     );
   }
   const [zones, sample] = await Promise.all([
-    getZones().then((zs) => zs.filter((z) => z.kind !== "NEARBY_TOWN")),
+    getShoppingAreas().then((zs) => zs.filter((z) => z.kind !== "NEARBY_TOWN")),
     db.variant.findFirst({ where: { isSampleSize: true, active: true }, select: { id: true } }),
   ]);
   if (!sample) return <p className="text-muted">Free samples aren&apos;t available right now. Please check back soon.</p>;
@@ -75,7 +75,7 @@ async function SampleContent() {
     <>
       <h2 className="font-display text-2xl font-bold">Where should we send it?</h2>
       <SampleForm
-        zones={zones.map((z) => ({ id: z.id, name: z.name, kind: z.kind }))}
+        zones={zones.map((z) => ({ id: z.id, name: z.name, kind: z.kind, state: z.state }))}
         sampleVariantId={sample.id}
         defaults={{ name: user.name ?? "", phone: user.phone ? formatNgPhone(user.phone) : "" }}
       />

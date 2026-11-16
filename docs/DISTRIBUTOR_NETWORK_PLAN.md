@@ -260,3 +260,11 @@ Confirmed by the business, replacing "one distributor per area" and the automati
 - **Unchanged:** prices within HQ's range, the HQ per-bag fee on online sales, monthly statements, the 3-hour payment hold, replacements and samples (now from the chosen store, delivered or picked up).
 - **Network map:** each area is shaded by how many stores deliver there besides HQ.
 - **One shop per store.** Each store has one shop and records the area it's in. Customers in that area always see the store for pickup, even if it doesn't deliver there. Gova Max Ltd's shop is at Kaura International Market, Abuja FCT. Kaura was added as a delivery area (HQ's fee starts as Durumi's).
+
+## Stores across Nigeria (16 Nov 2026)
+
+- **Every area has a state** (the 36 states and the FCT). Abuja districts, Bwari, Kuje, Zuba and Nyanya are FCT; Suleja and Madalla are Niger; Mararaba, Karu and Masaka are Nasarawa.
+- **Shoppers choose a state, then an area.** Only areas where they can actually buy are listed: HQ's own areas, and any area where an approved store delivers or has its shop.
+- **Find a store (`/stores`, "Stores" in the menu).** Filter by any state, or search by area or store name. It lists every area with a store in that state, with each store's address, whether its shop is in that area, whether it delivers there, pickup and phone. "Buy from …" opens the shop with that area and store chosen. A state with no stores says so.
+- **Distributors anywhere can sign up.** At `/partner/join` they choose their state and their shop's area. If the area isn't listed, they type it and it's created (as a "store area"). They then tick or type the areas they deliver to. New areas show to customers only once an approved store is there. In the portal, distributors see their own state's areas and can add more.
+- **HQ delivers only to its own areas** (Abuja and nearby towns), at the fees in **HQ delivery fees**. Store areas elsewhere appear there too, marked "Store area (HQ doesn't deliver)", so HQ can hide or tidy them.

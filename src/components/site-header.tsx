@@ -3,17 +3,17 @@ import { CartButton } from "./cart-button";
 import { Logo } from "./logo";
 import { UserIcon } from "./icons";
 import { AreaPicker } from "./area-picker";
-import { getZones } from "@/lib/catalogue";
+import { getShoppingAreas } from "@/lib/catalogue";
 
 const nav = [
   { href: "/shop", label: "Shop" },
   { href: "/promotions", label: "Promotions" },
-  { href: "/delivery", label: "Delivery" },
+  { href: "/stores", label: "Stores" },
   { href: "/track", label: "Track order" },
 ];
 
 export async function SiteHeader() {
-  const zones = (await getZones()).map((z) => ({ id: z.id, name: z.name, kind: z.kind }));
+  const zones = (await getShoppingAreas()).map((z) => ({ id: z.id, name: z.name, kind: z.kind, state: z.state }));
   return (
     <>
       <aside aria-label="Delivery notice" className="bg-brand-strong text-white/90 text-xs sm:text-sm text-center px-4 py-2">
