@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore, useTransition } from "react";
 import { cart, useCart } from "@/lib/cart-store";
-import { setZone, useZone } from "@/lib/zone-store";
+import { setFulfillment, setStore, setZone, useFulfillment, useStoreChoice, useZone } from "@/lib/zone-store";
+import { StoreList } from "@/components/store-list";
+import { getAreaStores, type StoreListing } from "@/app/stores/actions";
 import { formatNaira } from "@/lib/money";
 import { BagThumb } from "@/components/bag-thumb";
 import { MinusIcon, PlusIcon } from "@/components/icons";
@@ -23,12 +25,32 @@ export function CartView({ zones }: { zones: ZoneOption[] }) {
   const [coupon, setCoupon] = useState("");
   const [data, setData] = useState<CartQuoteResult | null>(null);
   const [pending, startTransition] = useTransition();
+  const storeId = useStoreChoice();
+  const fulfillment = useFulfillment();
+  const [stores, setStores] = useState<{ zoneId: string; list: StoreListing[] } | null>(null);
+  useEffect(() => {
+    if (!zoneId) return;
+    startTransition(async () => {
+      const r = await getAreaStores(zoneId);
+      setStores({ zoneId, list: r?.stores ?? [] });
+    });
+  }, [zoneId]);
+  const areaStores = stores && stores.zoneId === zoneId ? stores.list : null;
+  const store = areaStores?.find((x) => x.id === storeId) ?? null;
+  useEffect(() => {
+    if (areaStores && !store && areaStores.length === 1) setStore(areaStores[0].id);
+  }, [areaStores, store]);
+  // Pickup only where the store offers it; delivery only where it delivers.
+  useEffect(() => {
+    if (store && fulfillment === "PICKUP" && !store.pickup) setFulfillment("DELIVERY");
+    if (store && fulfillment === "DELIVERY" && !store.delivery && store.pickup) setFulfillment("PICKUP");
+  }, [store, fulfillment]);
 
-  const key = JSON.stringify([lines, zoneId, coupon]);
+  const key = JSON.stringify([lines, zoneId, store?.id ?? "", fulfillment, coupon]);
   useEffect(() => {
     if (!lines.length) return;
     startTransition(async () => {
-      const r = await getCartQuote({ lines, zoneId: zoneId || null, couponCode: coupon || null });
+      const r = await getCartQuote({ lines, zoneId: zoneId || null, storeId: store?.id ?? null, fulfillment, couponCode: coupon || null });
       setData(r);
       // Drop items that no longer exist in the catalogue.
       if (r) for (const l of lines) if (!r.lines.some((x) => x.variantId === l.variantId)) cart.remove(l.variantId);
@@ -55,10 +77,9 @@ export function CartView({ zones }: { zones: ZoneOption[] }) {
     );
   }
 
-  const zone = zones.find((z) => z.id === zoneId);
   const blocking = data?.issues ?? [];
-  const canCheckout = !!zoneId && data?.quote?.ok && !pending;
-  const checkoutHref = `/checkout?zone=${encodeURIComponent(zoneId)}${coupon ? `&coupon=${encodeURIComponent(coupon)}` : ""}`;
+  const canCheckout = !!zoneId && !!store && !data?.storeMessage && data?.quote?.ok && !pending;
+  const checkoutHref = `/checkout?zone=${encodeURIComponent(zoneId)}&store=${encodeURIComponent(store?.id ?? "")}&fulfillment=${fulfillment}${coupon ? `&coupon=${encodeURIComponent(coupon)}` : ""}`;
 
   return (
     <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_380px] items-start">
@@ -98,18 +119,35 @@ export function CartView({ zones }: { zones: ZoneOption[] }) {
 
       <aside aria-label="Order summary" className="card p-5 sm:p-6 lg:sticky lg:top-24 space-y-5">
         <div>
-          <label htmlFor="zone" className="text-sm font-semibold">Delivery area</label>
+          <label htmlFor="zone" className="text-sm font-semibold">Your area</label>
           <ZoneSelect zones={zones} value={zoneId} onChange={chooseZone} />
-          {data?.zone?.terms && <p className="mt-2 text-xs text-muted">{data.zone.terms}</p>}
-          {zoneId && data?.fulfiller && (
-            <p className="mt-2 text-sm">
-              Delivered by <strong>{data.fulfiller.name}</strong>
-              {data.fulfiller.routedToHq && (
-                <span className="block text-xs text-muted">Your area&apos;s distributor is out of some of these sizes, so HQ will deliver this order.</span>
-              )}
-            </p>
-          )}
         </div>
+
+        {zoneId && areaStores && (
+          <StoreList stores={areaStores} selectedId={store?.id ?? ""} onSelect={setStore} label="Buy from" />
+        )}
+
+        {store && (
+          <fieldset>
+            <legend className="text-sm font-semibold">Delivery or pickup</legend>
+            <div className="mt-2 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Delivery or pickup">
+              {(["DELIVERY", "PICKUP"] as const).map((f) => {
+                const possible = f === "DELIVERY" ? !!store.delivery : store.pickup;
+                return (
+                  <button key={f} type="button" role="radio" aria-checked={fulfillment === f} disabled={!possible} onClick={() => setFulfillment(f)}
+                    className={`rounded-xl border-2 px-3 py-2 text-sm font-semibold disabled:opacity-40 ${fulfillment === f ? "border-brand bg-brand-soft text-brand" : "border-border bg-surface"}`}>
+                    {f === "DELIVERY" ? "Delivery" : "Pickup (free)"}
+                  </button>
+                );
+              })}
+            </div>
+            {fulfillment === "PICKUP" && store.address && (
+              <p className="mt-2 text-xs text-muted">Collect from {store.name}, {store.address}{store.hours ? ` (${store.hours})` : ""}.</p>
+            )}
+            {fulfillment === "DELIVERY" && data?.zone?.terms && <p className="mt-2 text-xs text-muted">{data.zone.terms}</p>}
+          </fieldset>
+        )}
+        {data?.storeMessage && store && <p role="alert" className="text-sm text-danger">{data.storeMessage}</p>}
 
         <form
           className="flex gap-2"
@@ -136,7 +174,7 @@ export function CartView({ zones }: { zones: ZoneOption[] }) {
           <p className="-mt-3 text-sm text-success">Coupon {coupon} applied.</p>
         )}
 
-        <OrderSummary quote={data?.quote ?? null} subtotalKobo={subtotal} zoneChosen={!!zoneId} isPickup={zone?.kind === "PICKUP"} />
+        <OrderSummary quote={data?.quote ?? null} subtotalKobo={subtotal} zoneChosen={!!zoneId && !!store} isPickup={fulfillment === "PICKUP"} />
 
         {zoneId && blocking.length > 0 && (
           <ul role="alert" className="rounded-xl bg-promo-soft p-3 text-sm space-y-1">
@@ -147,9 +185,9 @@ export function CartView({ zones }: { zones: ZoneOption[] }) {
         {canCheckout ? (
           <Link href={checkoutHref} className="btn-cta w-full text-lg">Checkout</Link>
         ) : (
-          <button disabled className="btn-cta w-full text-lg">{zoneId ? (pending ? "Updating…" : "Checkout") : "Choose your area to continue"}</button>
+          <button disabled className="btn-cta w-full text-lg">{!zoneId ? "Choose your area to continue" : !store ? "Choose a store to continue" : pending ? "Updating…" : "Checkout"}</button>
         )}
-        <p className="text-xs text-muted text-center">Pay by bank transfer straight to your local seller after you place the order.</p>
+        <p className="text-xs text-muted text-center">Pay by bank transfer straight to the store&apos;s account after you place the order.</p>
       </aside>
     </div>
   );

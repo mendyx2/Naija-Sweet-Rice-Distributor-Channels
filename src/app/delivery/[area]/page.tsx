@@ -47,7 +47,7 @@ async function Area({ params }: Pick<PageProps<"/delivery/[area]">, "params">) {
   const { area } = await params;
   const [{ zone, zones }, products, distributors] = await Promise.all([findZone(area), getProducts(), getPublicDistributors()]);
   if (!zone) notFound();
-  const local = distributors.find((d) => d.zones.some((z) => z.id === zone.id)) ?? null;
+  const local = distributors.filter((d) => d.zones.some((z) => z.id === zone.id));
 
   const rice = products[0];
   const where = zone.kind === "ABUJA" ? `${zone.name}, Abuja` : zone.name;
@@ -93,11 +93,14 @@ async function Area({ params }: Pick<PageProps<"/delivery/[area]">, "params">) {
         <div className="card p-5"><dt className="text-sm text-muted">Minimum order</dt><dd className="mt-1 text-xl font-bold">{moq || "None"}</dd></div>
       </dl>
       {zone.terms && <p className="mt-3 text-sm text-muted">{zone.terms}</p>}
-      {local && (
-        <p className="mt-4 rounded-2xl bg-brand-soft p-4 text-sm">
-          Your local authorised distributor: <Link href={`/distributors/${local.slug}`} className="font-semibold text-brand underline">{local.name}</Link>.
-          Prices and delivery fees for {zone.name} are theirs; see them in your cart after choosing your area.
-        </p>
+      {local.length > 0 && (
+        <div className="mt-4 rounded-2xl bg-brand-soft p-4 text-sm">
+          <p>Authorised stores delivering to {zone.name}, as well as {site.name} HQ:</p>
+          <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+            {local.map((d) => <li key={d.id}><Link href={`/distributors/${d.slug}`} className="font-semibold text-brand underline">{d.name}</Link></li>)}
+          </ul>
+          <p className="mt-2 text-muted">Each store sets its own prices and delivery fee. Choose your area and a store on the product page to compare them.</p>
+        </div>
       )}
 
       {sizes.length > 0 && rice && (

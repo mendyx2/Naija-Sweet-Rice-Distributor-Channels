@@ -7,13 +7,15 @@ test("order from an HQ area, sign in with an email code, pay by transfer, HQ con
   await page.goto("/");
   await chooseArea(page, await zoneId("Garki"));
   await page.goto("/p/naija-sweet-rice?size=50");
-  await expect(page.getByText("Sold by")).toContainText("Naija Sweet Rice HQ");
+  // Only HQ delivers to Garki, so it's chosen automatically.
+  await expect(page.getByRole("radio", { name: /Naija Sweet Rice HQ/ })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByText(/Sold by Naija Sweet Rice HQ/)).toBeVisible();
   await expect(page.getByText("₦85,000").first()).toBeVisible();
   await page.getByRole("button", { name: "Add to cart" }).click();
   await expect(page.getByRole("link", { name: /Cart, 1 item/ })).toBeVisible();
 
   await page.goto("/cart");
-  await expect(page.getByRole("complementary", { name: "Order summary" })).toContainText("Delivered by Naija Sweet Rice HQ");
+  await expect(page.getByRole("complementary", { name: "Order summary" }).getByRole("radio", { name: /Naija Sweet Rice HQ/ })).toHaveAttribute("aria-checked", "true");
   await page.getByRole("link", { name: "Checkout" }).click();
   const email = newEmail();
   await loginWithCode(page, email);
@@ -60,15 +62,17 @@ test("nearby towns enforce the minimum order", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Checkout" })).toBeDisabled();
 });
 
-test("free 1kg sample with free pickup needs no payment", async ({ page }) => {
+test("free 1kg sample, picked up free from the store, needs no payment", async ({ page }) => {
   await signInAs(page.context(), newEmail(), { name: "Chidi Okafor" });
   await page.goto("/samples");
-  await page.locator("#zone").selectOption({ label: "Pickup at flagship store (free)" });
-  await expect(page.getByText("Sent by Naija Sweet Rice HQ")).toBeVisible();
+  await page.locator("#zone").selectOption({ label: "Garki" });
+  await expect(page.getByRole("radio", { name: /Naija Sweet Rice HQ/ })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("radio", { name: "Pickup (free)" }).click();
+  await expect(page.getByText("From Naija Sweet Rice HQ")).toBeVisible();
   await page.getByRole("button", { name: "Get my free sample" }).click();
   await page.waitForURL(/\/orders\/NSR-/);
   const order = await db.order.findUniqueOrThrow({ where: { number: page.url().split("/").pop()! } });
-  expect(order).toMatchObject({ type: "SAMPLE", status: "PAID", totalKobo: 0 });
+  expect(order).toMatchObject({ type: "SAMPLE", status: "PAID", totalKobo: 0, fulfillment: "PICKUP", distributorId: "hq" });
   await page.goto("/samples");
   await expect(page.getByText("You've requested your sample")).toBeVisible();
 });

@@ -36,7 +36,7 @@ async function Reports({ searchParams }: Pick<PageProps<"/partner/reports">, "se
 
   return (
     <>
-      <PartnerNav current="reports" name={distributor.name} isOwner={member.role === "OWNER"} />
+      <PartnerNav current="reports" name={distributor.name} status={distributor.status} isOwner={member.role === "OWNER"} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-2xl font-bold">{r.label}</h1>
         <nav className="flex gap-2 text-sm" aria-label="Month">

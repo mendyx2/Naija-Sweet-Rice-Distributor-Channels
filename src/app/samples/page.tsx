@@ -46,7 +46,7 @@ async function SampleContent() {
   if (!user) {
     return (
       <>
-        <h2 className="font-display text-2xl font-bold">First, confirm your phone</h2>
+        <h2 className="font-display text-2xl font-bold">First, sign in with your email</h2>
         <p className="mt-2 text-muted">We&apos;ll email you a code. This keeps samples to one per person.</p>
         <div className="mt-6"><OtpForm next="/samples" /></div>
       </>
@@ -66,12 +66,17 @@ async function SampleContent() {
       </>
     );
   }
-  const zones = (await getZones()).filter((z) => z.kind !== "NEARBY_TOWN");
+  const [zones, sample] = await Promise.all([
+    getZones().then((zs) => zs.filter((z) => z.kind !== "NEARBY_TOWN")),
+    db.variant.findFirst({ where: { isSampleSize: true, active: true }, select: { id: true } }),
+  ]);
+  if (!sample) return <p className="text-muted">Free samples aren&apos;t available right now. Please check back soon.</p>;
   return (
     <>
       <h2 className="font-display text-2xl font-bold">Where should we send it?</h2>
       <SampleForm
         zones={zones.map((z) => ({ id: z.id, name: z.name, kind: z.kind }))}
+        sampleVariantId={sample.id}
         defaults={{ name: user.name ?? "", phone: user.phone ? formatNgPhone(user.phone) : "" }}
       />
     </>

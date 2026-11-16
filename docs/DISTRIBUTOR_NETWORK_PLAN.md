@@ -245,3 +245,17 @@ Confirmed: HQ also uses bank transfer, the per-bag fee is set per bag size, 3-ho
 
 1. The Google account that will own the stock depletion sheet: create a service account, share the sheet with it, and set the three `GOOGLE_*` settings.
 2. Gova Max Ltd's areas, bank account and owner phone number (HQ can enter them in `/ops/distributors`).
+
+
+## Marketplace model (16 Nov 2026)
+
+Confirmed by the business, replacing "one distributor per area" and the automatic fallback to HQ:
+
+- **Customers choose the store.** After choosing their area, customers see every approved store that delivers there, plus HQ. Each store shows its price for the chosen bag size, stock, delivery fee and pickup address. The list puts stores with the size in stock first, then the cheapest; no store is favoured. With only one store in the area, it is picked automatically. Customers pay the chosen store's bank account.
+- **Several stores per area.** A store covers an area by setting a delivery fee for it. Distributors tick their areas under **Prices & delivery** (HQ can also change them). HQ delivers to every open area at HQ's fees.
+- **Delivery or pickup.** Each store can offer free pickup at its own address. The customer chooses at the cart; pickup orders need no street address and pay no delivery fee. (The old "Pickup at flagship store" area is retired; HQ's pickup is at the flagship address.)
+- **Distributors sign themselves up** at `/partner/join`: business name, CAC number (optional), shop address, phone, bank account, areas and delivery fee. The store is created at once but hidden (**Waiting for approval**). They can set prices and fees meanwhile. An HQ owner approves or declines it; the distributor is emailed either way. After approval, only HQ can change the bank account.
+- **Stock.** Distributors order and pay for stock with HQ outside the platform. HQ records each delivery with **Dispatch from HQ** on the store's page, and the distributor confirms what arrived. In-platform restock requests and invoices were removed.
+- **Promotions are opt-in.** HQ promo codes and points coupons work at HQ and at stores that tick **Take part in Naija Sweet Rice promotions**. HQ pays those discounts and credits them on the monthly statement. A store's own codes work only at that store. Stores that existed before this change were kept in HQ promotions; new stores start outside them.
+- **Unchanged:** prices within HQ's range, the HQ per-bag fee on online sales, monthly statements, the 3-hour payment hold, replacements and samples (now from the chosen store, delivered or picked up).
+- **Network map:** each area is shaded by how many stores deliver there besides HQ.

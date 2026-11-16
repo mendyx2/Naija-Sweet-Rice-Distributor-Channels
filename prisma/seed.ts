@@ -87,8 +87,6 @@ async function main() {
   let order = 0;
   const zones: { name: string; kind: ZoneKind; baseFeeKobo: number; perKgFeeKobo: number;
     minOrderKg?: number; etaHours: number; terms?: string }[] = [
-    { name: "Pickup at flagship store", kind: "PICKUP", baseFeeKobo: 0, perKgFeeKobo: 0, etaHours: 2,
-      terms: "Collect from our Abuja flagship store during opening hours." },
     ...ABUJA_AREAS.map((name) => ({ name, kind: "ABUJA" as const, baseFeeKobo: 2_000_00, perKgFeeKobo: 30_00, etaHours: 24 })),
     ...NEARBY_TOWNS.map((name) => ({
       name, kind: "NEARBY_TOWN" as const, baseFeeKobo: 4_000_00, perKgFeeKobo: 40_00, minOrderKg: 50, etaHours: 48,

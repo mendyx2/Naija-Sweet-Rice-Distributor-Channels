@@ -86,12 +86,8 @@ Go to `https://yourdomain/ops` and sign in with an email address from `HQ_OWNER_
    - **distributor range** (lowest–highest retail price distributors may set);
    - **HQ fee per bag** (charged on distributor online sales).
 4. **HQ delivery fees:** confirm the fee per area (the starting values are placeholders).
-5. **Distributors → Gova Max Ltd** (and any others):
-   - bank account;
-   - areas;
-   - owner's email address (they get an email invitation and sign in with it);
-   - alert email;
-   - send opening stock.
+5. **Distributors.** New distributors open their own store at `https://yourdomain/partner/join` (link in the site footer). They enter their business, bank account, areas and delivery fee. You get a Telegram/email alert. Open the store in **Distributors**, check it and press **Approve store** (owners only), then record the opening stock they bought from you with **Dispatch from HQ**. They confirm receipt and the store is live.
+   For **Gova Max Ltd** (already set up by HQ): check its bank account, areas and owner's email address (they get an email invitation), then send opening stock.
 6. **Alerts:** on the Distributors page, connect HQ's Telegram (§7). Ask each distributor to connect theirs under **Alerts** in the partner portal.
 7. **Promotions**, if you want one at launch.
 

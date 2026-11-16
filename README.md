@@ -20,7 +20,9 @@ npm run db:seed           # bag sizes + delivery zones (prices start empty)
 npm run dev               # http://localhost:3000
 ```
 
-Customers pay by **bank transfer** to the seller for their area (a distributor, or HQ). Everyone signs in
+It works as a marketplace of authorised stores. Distributors open their own store at **/partner/join**, and HQ approves it.
+Customers choose their area, then one of the stores serving it (each with its own prices, stock, delivery fee and
+pickup address), and pay that store by **bank transfer**. HQ records the stock it delivers to each store. Everyone signs in
 with their **email address** and a 6-digit code sent by email (Resend). Customer messages also go by email, and staff
 alerts go to Telegram and/or email (all free). There is no SMS during the soft launch. Without the provider keys, local
 development shows the sign-in code on screen and prints messages to the server log.

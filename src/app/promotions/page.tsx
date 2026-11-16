@@ -44,7 +44,7 @@ export default async function PromotionsPage() {
         </section>
         <section id="sample" className="rounded-3xl bg-promo-soft p-6 scroll-mt-24">
           <h2 className="font-display text-xl font-bold">Try a free 1kg sample</h2>
-          <p className="mt-2">The rice is free. You only pay delivery, or pick it up free at the flagship store. One per household.</p>
+          <p className="mt-2">The rice is free. You only pay delivery, or pick it up free from a store near you. One per household.</p>
           <Link href="/samples" className="mt-4 inline-block font-semibold underline">Request a sample</Link>
         </section>
       </div>

@@ -94,7 +94,7 @@ async function Product({ params }: Pick<PageProps<"/p/[slug]">, "params">) {
         </Suspense>
         <ul className="mt-8 space-y-3 text-sm">
           <li className="flex gap-3"><TruckIcon className="h-5 w-5 text-brand shrink-0" /> Delivery across Abuja within 24 hours; nearby towns have a minimum order.</li>
-          <li className="flex gap-3"><StoreIcon className="h-5 w-5 text-brand shrink-0" /> Free pickup at our Abuja flagship store.</li>
+          <li className="flex gap-3"><StoreIcon className="h-5 w-5 text-brand shrink-0" /> Free pickup from stores that offer it.</li>
           <li className="flex gap-3"><ShieldIcon className="h-5 w-5 text-brand shrink-0" /> Damaged or underweight bag? <Link href="/returns-policy" className="underline">We replace it.</Link></li>
         </ul>
       </div>

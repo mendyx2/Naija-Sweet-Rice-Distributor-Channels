@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { formatNaira } from "@/lib/money";
 import { formatNgPhone } from "@/lib/phone";
+import { site } from "@/lib/site";
 import { OrderTimeline } from "@/components/order-timeline";
 import { StatusPill } from "@/components/order-status";
 import { BagThumb } from "@/components/bag-thumb";
@@ -45,7 +46,7 @@ async function Order({ params }: Pick<PageProps<"/orders/[number]">, "params">) 
   });
   if (!order || order.userId !== user.id) notFound();
 
-  const isPickup = order.zone.kind === "PICKUP";
+  const isPickup = order.fulfillment === "PICKUP";
   const addr = order.addressSnapshot as { street?: string; landmark?: string | null; zoneName?: string };
   const justPaid = order.status === "PAID" && isWithinMinutes(order.paidAt, 24 * 60);
   const awaitingTransfer = order.status === "PENDING_PAYMENT" && order.paymentMethod === "BANK_TRANSFER" && !!order.payTo;
@@ -122,7 +123,10 @@ async function Order({ params }: Pick<PageProps<"/orders/[number]">, "params">) 
           <section className="card p-5 text-sm">
             <h3 className="font-semibold">{isPickup ? "Pickup" : "Delivery to"}</h3>
             {isPickup ? (
-              <p className="mt-2 text-muted">Flagship store, {order.zone.name}</p>
+              <p className="mt-2 text-muted">
+                {seller}, {order.distributor.address ?? (order.distributor.isHq ? [site.street, site.area, "Abuja"].filter(Boolean).join(", ") : order.zone.name)}
+                {order.distributor.hours || order.distributor.isHq ? <span className="block">Open {order.distributor.hours ?? site.hoursLabel}</span> : null}
+              </p>
             ) : (
               <p className="mt-2 text-muted">{addr.street}{addr.landmark ? ` (near ${addr.landmark})` : ""}, {addr.zoneName}</p>
             )}

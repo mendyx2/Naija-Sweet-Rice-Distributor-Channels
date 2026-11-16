@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import { openAreaPicker, useZone } from "@/lib/zone-store";
-import { getAreaOffers } from "./actions";
+import { openAreaPicker, setStore, useStoreChoice, useZone } from "@/lib/zone-store";
+import { getAreaStores, type StoreListing } from "@/app/stores/actions";
+import { StoreList } from "@/components/store-list";
 import { toItem, track } from "@/lib/analytics";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import type { CatalogueVariant } from "@/lib/catalogue";
@@ -26,20 +27,32 @@ export function SizePicker({
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState<string | null>(null);
 
-  // Prices and stock follow the customer's area (its distributor, or HQ). Until an area is chosen, HQ's are shown.
+  // The customer chooses their area, then one of the stores serving it. Prices and stock are that store's.
   const zoneId = useZone();
-  const [area, setArea] = useState<{ zoneId: string; data: Awaited<ReturnType<typeof getAreaOffers>> } | null>(null);
+  const storeId = useStoreChoice();
+  const [area, setArea] = useState<{ zoneId: string; zoneName: string; stores: StoreListing[] } | null>(null);
   const [, startTransition] = useTransition();
   useEffect(() => {
     if (!zoneId) return;
-    startTransition(async () => setArea({ zoneId, data: await getAreaOffers(zoneId) }));
+    startTransition(async () => {
+      const r = await getAreaStores(zoneId);
+      setArea(r ? { zoneId, ...r } : { zoneId, zoneName: "", stores: [] });
+    });
   }, [zoneId]);
-  const areaData = area && area.zoneId === zoneId ? area.data : null;
+  const areaData = area && area.zoneId === zoneId ? area : null;
+  const store = areaData?.stores.find((x) => x.id === storeId) ?? null;
+  // With a single store in the area there is nothing to choose.
+  useEffect(() => {
+    if (areaData && !store && areaData.stores.length === 1) setStore(areaData.stores[0].id);
+  }, [areaData, store]);
+
   const variants = hqVariants.map((v) => {
-    const o = areaData?.offers.find((x) => x.variantId === v.id);
-    return o
-      ? { ...v, retailPriceKobo: o.retailPriceKobo, compareAtPriceKobo: o.compareAtPriceKobo, available: o.available, seller: o.seller }
-      : { ...v, seller: null as string | null };
+    const o = store?.sizes.find((x) => x.variantId === v.id);
+    if (o) return { ...v, retailPriceKobo: o.priceKobo, compareAtPriceKobo: o.compareAtKobo, available: o.available };
+    // No store chosen yet: show the lowest price among the area's stores ("from").
+    const prices = (areaData?.stores ?? []).map((st) => st.sizes.find((x) => x.variantId === v.id)).filter((x) => x?.priceKobo != null && x.available > 0);
+    const from = prices.length ? Math.min(...prices.map((x) => x!.priceKobo!)) : v.retailPriceKobo;
+    return { ...v, retailPriceKobo: from, compareAtPriceKobo: null, available: areaData ? prices.reduce((n, x) => Math.max(n, x!.available), 0) : v.available };
   });
 
   const requested = Number(search.get("size"));
@@ -57,7 +70,7 @@ export function SizePicker({
 
   const priced = selected.retailPriceKobo != null;
   const maxQty = Math.min(selected.available, 100);
-  const canBuy = priced && selected.available > 0;
+  const canBuy = !!store && priced && selected.available > 0;
   const waText = encodeURIComponent(`Hello, I'd like to order ${productName} ${selected.sizeKg}kg × ${qty}.`);
 
   const choose = (sizeKg: number) => {
@@ -67,6 +80,7 @@ export function SizePicker({
   };
 
   const addToCart = () => {
+    if (!store) return;
     cart.add(selected.id, qty);
     track("add_to_cart", {
       valueKobo: selected.retailPriceKobo! * qty,
@@ -109,22 +123,29 @@ export function SizePicker({
         <p className="mt-2 text-sm text-muted">
           {zoneId && areaData ? (
             <>
-              {selected.seller ? <>Sold by <strong className="text-foreground">{selected.seller}</strong> · </> : null}
-              Delivering to {areaData.zoneName}{" "}
+              {store ? <>Sold by <strong className="text-foreground">{store.name}</strong> · </> : areaData.stores.length > 1 ? <>From {areaData.stores.length} stores · </> : null}
+              Your area: {areaData.zoneName}{" "}
               <button type="button" onClick={openAreaPicker} className="font-semibold text-brand underline">Change</button>
             </>
           ) : zoneId ? (
-            "Checking prices for your area…"
+            "Finding stores in your area…"
           ) : (
             <button type="button" onClick={openAreaPicker} className="font-semibold text-brand underline">
-              Choose your area to see your local price
+              Choose your area to see the stores near you
             </button>
           )}
         </p>
-        {priced && (
+        {priced && store && (
           <p className={`mt-2 text-sm font-medium ${selected.available > 0 ? "text-success" : "text-danger"}`}>
-            {selected.available > 10 ? "In stock" : selected.available > 0 ? `Only ${selected.available} left` : "Out of stock"}
+            {selected.available > 10 ? "In stock" : selected.available > 0 ? `Only ${selected.available} left` : "Out of stock at this store"}
           </p>
+        )}
+
+        {areaData && (
+          <div className="mt-5">
+            <StoreList stores={areaData.stores} selectedId={store?.id ?? ""} onSelect={setStore} variantId={selected.id}
+              label={`Stores in ${areaData.zoneName}`} />
+          </div>
         )}
 
         {canBuy ? (
@@ -146,7 +167,7 @@ export function SizePicker({
           </div>
         ) : (
           <p className="mt-5 rounded-xl bg-background p-3 text-sm text-muted">
-            {priced ? "This size is out of stock right now." : "This size isn't on sale online yet."} You can still order on WhatsApp.
+            {!zoneId ? "Choose your area first, then a store." : !store ? (areaData?.stores.length ? "Choose a store above to buy from." : "No store serves your area yet.") : priced ? "This size is out of stock at this store. Try another store." : "This store doesn't sell this size online."} You can also order on WhatsApp.
           </p>
         )}
 

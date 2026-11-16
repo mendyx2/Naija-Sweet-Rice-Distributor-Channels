@@ -57,7 +57,9 @@ export async function updateDistributor(_prev: FormState, formData: FormData): P
   const before = await db.distributor.findUnique({ where: { id } });
   if (!before) return { ok: false, message: "Distributor not found." };
   if (before.isHq && f.status === "SUSPENDED") return { ok: false, message: "HQ can't be suspended." };
-  const after = { name: f.name, phone, address: f.address || null, hours: f.hours || null, slaHours: f.slaHours, status: f.status, alertEmail: f.alertEmail?.toLowerCase() || null };
+  // A store waiting for approval (or not approved) only changes status through approveStore/rejectStore.
+  const status = before.status === "PENDING" || before.status === "REJECTED" ? before.status : f.status;
+  const after = { name: f.name, phone, address: f.address || null, hours: f.hours || null, slaHours: f.slaHours, status, alertEmail: f.alertEmail?.toLowerCase() || null };
   await db.$transaction([
     db.distributor.update({ where: { id }, data: after }),
     db.auditLog.create({ data: { actor, action: "distributor.update", entity: "Distributor", entityId: id, before: { status: before.status, name: before.name }, after } }),
@@ -103,36 +105,30 @@ export async function updateBankDetails(_prev: FormState, formData: FormData): P
   return { ok: true, message: `Bank details saved.${alerted ? ` ${d.name} has been alerted.` : ` ${d.name} has no Telegram or email to alert yet.`}` };
 }
 
-/** One distributor per area: assigning an area moves it from any previous owner. */
+/** The areas a store delivers to (several stores can share an area). New areas start at HQ's fee for them. */
 export async function updateAreas(_prev: FormState, formData: FormData): Promise<FormState> {
   const actor = await requireOps();
   const id = String(formData.get("id") ?? "");
-  const d = await db.distributor.findUnique({ where: { id } });
-  if (!d || d.isHq) return { ok: false, message: "HQ serves every area as the fallback; assign areas to distributors." };
+  const d = await db.distributor.findUnique({ where: { id }, include: { zoneFees: true } });
+  if (!d || d.isHq) return { ok: false, message: "HQ delivers to every open area; change HQ's fees under HQ delivery fees." };
   const wanted = new Set(formData.getAll("zone").map(String));
   const zones = await db.deliveryZone.findMany({ where: { kind: { not: "PICKUP" } } });
-  const moved: string[] = [];
+  const has = new Set(d.zoneFees.map((f) => f.zoneId));
   await db.$transaction(async (tx) => {
     for (const z of zones) {
-      const has = z.distributorId === id;
-      if (wanted.has(z.id) && !has) {
-        if (z.distributorId) moved.push(z.name);
-        await tx.deliveryZone.update({ where: { id: z.id }, data: { distributorId: id } });
-        // Start from HQ's fee for the area; the distributor can change it in their portal.
-        await tx.distributorZoneFee.upsert({
-          where: { distributorId_zoneId: { distributorId: id, zoneId: z.id } },
-          create: { distributorId: id, zoneId: z.id, baseFeeKobo: z.baseFeeKobo, perKgFeeKobo: z.perKgFeeKobo, minOrderKg: z.minOrderKg, minOrderKobo: z.minOrderKobo, etaHours: z.etaHours, terms: z.terms },
-          update: {},
+      if (wanted.has(z.id) && !has.has(z.id)) {
+        await tx.distributorZoneFee.create({
+          data: { distributorId: id, zoneId: z.id, baseFeeKobo: z.baseFeeKobo, perKgFeeKobo: z.perKgFeeKobo, minOrderKg: z.minOrderKg, minOrderKobo: z.minOrderKobo, etaHours: z.etaHours, terms: z.terms },
         });
-      } else if (!wanted.has(z.id) && has) {
-        await tx.deliveryZone.update({ where: { id: z.id }, data: { distributorId: null } });
+      } else if (!wanted.has(z.id) && has.has(z.id)) {
+        await tx.distributorZoneFee.delete({ where: { distributorId_zoneId: { distributorId: id, zoneId: z.id } } });
       }
     }
     await tx.auditLog.create({ data: { actor, action: "distributor.areas", entity: "Distributor", entityId: id, after: { zones: [...wanted] } } });
   });
   updateTag(TAGS.zones);
   refresh();
-  return { ok: true, message: `Areas saved.${moved.length ? ` Moved from another distributor: ${moved.join(", ")}.` : ""}` };
+  return { ok: true, message: `Areas saved: ${wanted.size} area${wanted.size === 1 ? "" : "s"}.` };
 }
 
 export async function addMember(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -249,4 +245,42 @@ export async function testHqAlert(): Promise<FormState> {
   await requireOps();
   const sent = await alertHq("This is a test alert. If you can read this, HQ alerts are working.", "Test alert");
   return sent ? { ok: true, message: `Test alert sent to ${sent} place${sent === 1 ? "" : "s"}.` } : { ok: false, message: "No HQ Telegram chat or alert email is connected yet." };
+}
+
+/** HQ approves a store that signed up: it goes live for customers in its areas. Owners only. */
+export async function approveStore(_prev: FormState, formData: FormData): Promise<FormState> {
+  const actor = await requireOps({ ownerOnly: true });
+  const id = String(formData.get("id") ?? "");
+  const d = await db.distributor.findUnique({ where: { id }, include: { members: { where: { role: "OWNER" }, include: { user: true } } } });
+  if (!d || d.status !== "PENDING") return { ok: false, message: "This store isn't waiting for approval." };
+  if (!d.bankName || !d.accountNumber || !d.accountName) return { ok: false, message: "Add the store's bank details first." };
+  await db.$transaction([
+    db.distributor.update({ where: { id }, data: { status: "ACTIVE", approvedAt: new Date(), approvedBy: actor } }),
+    db.auditLog.create({ data: { actor, action: "store.approve", entity: "Distributor", entityId: id } }),
+  ]);
+  for (const m of d.members) {
+    await notifyPerson(m.user.email, `${d.name} is approved`,
+      `Good news: ${d.name} is approved and visible to customers in your areas once you have stock and prices.\n\nYour portal: ${site.url}/partner\nYour shop link: ${site.url}/distributors/${d.slug}`);
+  }
+  updateTag(TAGS.zones);
+  refresh();
+  return { ok: true, message: `${d.name} is approved. Record their opening stock below so customers can buy.` };
+}
+
+/** HQ declines a store that signed up. Owners only. */
+export async function rejectStore(_prev: FormState, formData: FormData): Promise<FormState> {
+  const actor = await requireOps({ ownerOnly: true });
+  const id = String(formData.get("id") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 300);
+  const d = await db.distributor.findUnique({ where: { id }, include: { members: { where: { role: "OWNER" }, include: { user: true } } } });
+  if (!d || d.status !== "PENDING") return { ok: false, message: "This store isn't waiting for approval." };
+  await db.$transaction([
+    db.distributor.update({ where: { id }, data: { status: "REJECTED" } }),
+    db.auditLog.create({ data: { actor, action: "store.reject", entity: "Distributor", entityId: id, after: { reason } } }),
+  ]);
+  for (const m of d.members) {
+    await notifyPerson(m.user.email, `about ${d.name}`, `We couldn't approve ${d.name} on ${site.name} at this time.${reason ? ` ${reason}` : ""} Please contact HQ if you have questions.`);
+  }
+  refresh();
+  return { ok: true, message: `${d.name} was not approved. The applicant has been emailed.` };
 }

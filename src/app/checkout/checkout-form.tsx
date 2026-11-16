@@ -13,11 +13,13 @@ import { track } from "@/lib/analytics";
 import { setZone } from "@/lib/zone-store";
 
 export function CheckoutForm({
-  zones, initialZoneId, initialCoupon, defaults,
+  zones, initialZoneId, initialCoupon, storeId, fulfillment, defaults,
 }: {
   zones: ZoneOption[];
   initialZoneId: string;
   initialCoupon: string;
+  storeId: string;
+  fulfillment: "DELIVERY" | "PICKUP";
   defaults: { name: string; phone: string; email: string };
 }) {
   const lines = useCart();
@@ -30,7 +32,7 @@ export function CheckoutForm({
   const key = JSON.stringify([lines, zoneId]);
   useEffect(() => {
     if (!lines.length) return;
-    startTransition(async () => setData(await getCartQuote({ lines, zoneId: zoneId || null, couponCode: initialCoupon || null })));
+    startTransition(async () => setData(await getCartQuote({ lines, zoneId: zoneId || null, storeId: storeId || null, fulfillment, couponCode: initialCoupon || null })));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
@@ -53,8 +55,8 @@ export function CheckoutForm({
     );
   }
 
-  const zone = zones.find((z) => z.id === zoneId);
-  const isPickup = zone?.kind === "PICKUP";
+  const isPickup = fulfillment === "PICKUP";
+  const store = data?.fulfiller;
   const q = data?.quote;
   const redirecting = state?.ok === true;
 
@@ -62,6 +64,8 @@ export function CheckoutForm({
     <form action={action} className="mt-6 grid gap-8 lg:grid-cols-[1fr_380px] items-start">
       <input type="hidden" name="lines" value={JSON.stringify(lines)} />
       <input type="hidden" name="coupon" value={initialCoupon} />
+      <input type="hidden" name="storeId" value={storeId} />
+      <input type="hidden" name="fulfillment" value={fulfillment} />
 
       <div className="space-y-6">
         <fieldset className="card p-5 sm:p-6">
@@ -84,17 +88,17 @@ export function CheckoutForm({
         </fieldset>
 
         <fieldset className="card p-5 sm:p-6">
-          <legend className="sr-only">Delivery</legend>
-          <h2 className="font-display text-xl font-bold">Delivery</h2>
+          <legend className="sr-only">{isPickup ? "Pickup" : "Delivery"}</legend>
+          <h2 className="font-display text-xl font-bold">{isPickup ? "Pickup" : "Delivery"}</h2>
           <div className="mt-4 space-y-4">
             <div>
-              <label htmlFor="zone" className="text-sm font-semibold">Area</label>
+              <label htmlFor="zone" className="text-sm font-semibold">Your area</label>
               <ZoneSelect zones={zones} value={zoneId} onChange={setZoneId} name="zoneId" required />
-              {data?.zone?.terms && <p className="mt-2 text-xs text-muted">{data.zone.terms}</p>}
+              {!isPickup && data?.zone?.terms && <p className="mt-2 text-xs text-muted">{data.zone.terms}</p>}
             </div>
             {isPickup ? (
               <p className="rounded-xl bg-brand-soft p-4 text-sm">
-                You&apos;ll collect your order from our flagship store. We&apos;ll email you when it&apos;s ready.
+                You&apos;ll collect your order from <strong>{store?.name ?? "the store"}</strong>{store?.address ? `, ${store.address}` : ""}{store?.hours ? ` (${store.hours})` : ""}. We&apos;ll email you when it&apos;s ready.
               </p>
             ) : (
               <>
@@ -118,12 +122,13 @@ export function CheckoutForm({
 
       <aside aria-label="Order summary" className="card p-5 sm:p-6 lg:sticky lg:top-24 space-y-5">
         <h2 className="font-display text-xl font-bold">Order summary</h2>
-        {data?.fulfiller && (
+        {store && (
           <p className="-mt-3 text-sm text-muted">
-            Sold and delivered by <strong className="text-foreground">{data.fulfiller.name}</strong>
-            {data.fulfiller.routedToHq && <span className="block text-xs">Your area&apos;s distributor is out of some of these sizes, so HQ will deliver.</span>}
+            {isPickup ? "Sold by" : "Sold and delivered by"} <strong className="text-foreground">{store.name}</strong>{" "}
+            <Link href="/cart" className="text-brand underline">Change</Link>
           </p>
         )}
+        {data?.storeMessage && <p role="alert" className="text-sm text-danger">{data.storeMessage}</p>}
         <ul className="space-y-3">
           {data?.lines.map((l) => (
             <li key={l.variantId} className="flex items-center gap-3 text-sm">
@@ -146,7 +151,7 @@ export function CheckoutForm({
           {pending ? "Placing order…" : redirecting ? "Opening payment…" : q ? `Pay ${formatNaira(q.totalKobo)}` : "Pay"}
         </button>
         <p className="text-xs text-muted text-center">
-          Next you&apos;ll see the seller&apos;s bank details to pay by transfer. Your bags are held for 3 hours while you pay.
+          Next you&apos;ll see the store&apos;s bank details to pay by transfer. Your bags are held for 3 hours while you pay.
         </p>
         <Link href="/cart" className="block text-center text-sm text-brand underline">Back to cart</Link>
       </aside>

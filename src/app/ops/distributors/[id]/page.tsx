@@ -9,7 +9,7 @@ import { OpsNav } from "../../ops-nav";
 import { ShopLinkCard } from "@/components/shop-link-card";
 import { formatNaira } from "@/lib/money";
 import { currentMonth, distributorMonth } from "@/lib/statement";
-import { addMember, removeMember, reviewAdjustment, sendStock, updateAreas, updateBankDetails, updateDistributor } from "../actions";
+import { addMember, approveStore, rejectStore, removeMember, reviewAdjustment, sendStock, updateAreas, updateBankDetails, updateDistributor } from "../actions";
 import { contactLabel } from "@/lib/people";
 
 export default function DistributorPage({ params }: PageProps<"/ops/distributors/[id]">) {
@@ -31,14 +31,14 @@ async function Distributor({ params }: Pick<PageProps<"/ops/distributors/[id]">,
     where: { id },
     include: {
       members: { include: { user: true }, orderBy: { createdAt: "asc" } },
-      zones: true,
+      zoneFees: true,
       stock: { include: { variant: true } },
     },
   });
   if (!d) notFound();
   const telegramCount = await db.telegramChat.count({ where: { user: { distributorMember: { distributorId: id } } } });
   const [zones, pending, movements] = await Promise.all([
-    db.deliveryZone.findMany({ where: { kind: { not: "PICKUP" } }, orderBy: { sortOrder: "asc" }, include: { distributor: { select: { id: true, name: true } } } }),
+    db.deliveryZone.findMany({ where: { kind: { not: "PICKUP" } }, orderBy: { sortOrder: "asc" }, include: { distributorFees: { include: { distributor: { select: { id: true, name: true } } } } } }),
     db.stockMovement.findMany({ where: { distributorId: id, status: "PENDING_APPROVAL" }, include: { variant: true }, orderBy: { createdAt: "asc" } }),
     db.stockMovement.findMany({ where: { distributorId: id }, include: { variant: true }, orderBy: { createdAt: "desc" }, take: 25 }),
   ]);
@@ -50,7 +50,39 @@ async function Distributor({ params }: Pick<PageProps<"/ops/distributors/[id]">,
       <OpsNav current="distributors" />
       <Link href="/ops/distributors" className="text-sm text-brand underline">← All distributors</Link>
       <h1 className="font-display text-3xl font-bold mt-2">{d.name}</h1>
-      <p className="text-sm text-muted">{d.isHq ? "HQ serves areas without a distributor and orders distributors can't fill." : `Partner portal sign-in: ${d.members.length ? "set up" : "no logins yet"}`}</p>
+      <p className="text-sm text-muted">{d.isHq ? "HQ's own store: it delivers to every open area at HQ's delivery fees, and offers pickup at the flagship store." : `Partner portal sign-in: ${d.members.length ? "set up" : "no logins yet"}`}</p>
+
+      {!d.isHq && d.status === "ACTIVE" && d.approvedAt && d.approvedBy !== "hq:setup" && (
+        <p role="status" className="mt-3 rounded-xl bg-brand-soft p-3 text-sm">
+          Approved {d.approvedAt.toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Lagos" })}.
+          {d.stock.every((x) => x.onHand === 0 && x.inTransit === 0) ? " Record their opening stock below so customers can buy." : ""}
+        </p>
+      )}
+      {d.status === "PENDING" && (
+        <section className="mt-6 card border-cta p-5">
+          <h2 className="font-semibold text-lg">New store waiting for approval</h2>
+          <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+            <div><dt className="text-muted">Signed up</dt><dd>{d.createdAt.toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Lagos" })}</dd></div>
+            <div><dt className="text-muted">Owner</dt><dd className="break-all">{d.members.map((m) => `${m.user.name ?? ""} ${contactLabel(m.user)}`.trim()).join(", ") || "none"}</dd></div>
+            <div><dt className="text-muted">CAC number</dt><dd>{d.cacNumber ?? "not given"}</dd></div>
+            <div><dt className="text-muted">Bank account</dt><dd>{d.bankName} {d.accountNumber} ({d.accountName})</dd></div>
+            <div><dt className="text-muted">Areas</dt><dd>{d.zoneFees.length} · pickup {d.pickupEnabled ? "yes" : "no"}</dd></div>
+            <div><dt className="text-muted">HQ promotions</dt><dd>{d.joinsHqPromotions ? "Takes part" : "Doesn't take part"}</dd></div>
+          </dl>
+          {isOwner ? (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <ActionForm action={approveStore} submit="Approve store" buttonClass="btn-cta py-2.5" confirm={`Approve ${d.name}? Customers will see it and pay into ${d.bankName} ${d.accountNumber}.`}>
+                <input type="hidden" name="id" value={d.id} />
+                <p className="text-sm text-muted">Check the business and the bank account name first. After approval, record their opening stock below.</p>
+              </ActionForm>
+              <ActionForm action={rejectStore} submit="Don't approve" buttonClass="btn-outline py-2.5" confirm={`Decline ${d.name}?`}>
+                <input type="hidden" name="id" value={d.id} />
+                <label className="block text-sm"><span className="font-semibold">Reason for the applicant <span className="font-normal text-muted">(optional)</span></span><input name="reason" maxLength={300} className="field" /></label>
+              </ActionForm>
+            </div>
+          ) : <p className="mt-3 text-sm text-muted">An HQ owner needs to approve new stores.</p>}
+        </section>
+      )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2 items-start">
         <section className="card p-5">
@@ -103,14 +135,14 @@ async function Distributor({ params }: Pick<PageProps<"/ops/distributors/[id]">,
         {!d.isHq && (
           <section className="card p-5 lg:col-span-2">
             <h2 className="font-semibold text-lg">Areas</h2>
-            <p className="mt-1 text-sm text-muted">One distributor per area. Ticking an area that belongs to someone else moves it here.</p>
+            <p className="mt-1 text-sm text-muted">Areas this store delivers to. Several stores can serve the same area. The distributor can also change this, and set their fees, in their portal.</p>
             <ActionForm action={updateAreas} submit="Save areas" className="mt-3 space-y-4 text-sm">
               <input type="hidden" name="id" value={d.id} />
               <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-4">
                 {zones.map((z) => (
                   <label key={z.id} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 has-[:checked]:border-brand has-[:checked]:bg-brand-soft">
-                    <input type="checkbox" name="zone" value={z.id} defaultChecked={z.distributorId === d.id} className="h-4 w-4 accent-[var(--brand)]" />
-                    <span>{z.name}{z.distributor && z.distributor.id !== d.id && <span className="block text-xs text-muted">now: {z.distributor.name}</span>}</span>
+                    <input type="checkbox" name="zone" value={z.id} defaultChecked={z.distributorFees.some((f) => f.distributorId === d.id)} className="h-4 w-4 accent-[var(--brand)]" />
+                    <span>{z.name}{z.distributorFees.some((f) => f.distributorId !== d.id) && <span className="block text-xs text-muted">also: {z.distributorFees.filter((f) => f.distributorId !== d.id).map((f) => f.distributor.name).join(", ")}</span>}</span>
                   </label>
                 ))}
               </div>
@@ -184,7 +216,7 @@ async function Distributor({ params }: Pick<PageProps<"/ops/distributors/[id]">,
           </section>
         )}
 
-        {!d.isHq && <ShopLinkCard slug={d.slug} live={d.status === "ACTIVE" && d.zones.length > 0} />}
+        {!d.isHq && <ShopLinkCard slug={d.slug} live={d.status === "ACTIVE" && d.zoneFees.length > 0} />}
 
         {pending.length > 0 && (
           <section className="card p-5 border-cta">

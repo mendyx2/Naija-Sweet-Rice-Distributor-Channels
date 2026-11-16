@@ -47,7 +47,7 @@ async function Orders({ searchParams }: Pick<PageProps<"/partner">, "searchParam
 
   return (
     <>
-      <PartnerNav current="orders" name={distributor.name} isOwner={member.role === "OWNER"} />
+      <PartnerNav current="orders" name={distributor.name} status={distributor.status} isOwner={member.role === "OWNER"} />
       <h1 className="font-display text-2xl font-bold">Orders</h1>
       <nav className="mt-4 flex flex-wrap gap-2 text-sm" aria-label="Filter orders">
         {FILTERS.map((f) => (

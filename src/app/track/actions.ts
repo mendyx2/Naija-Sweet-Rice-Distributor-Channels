@@ -28,7 +28,7 @@ export async function trackOrder(_prev: TrackResult, formData: FormData): Promis
     ok: true,
     number: order.number,
     status: order.status,
-    isPickup: order.zone.kind === "PICKUP",
+    isPickup: order.fulfillment === "PICKUP",
     events: order.events.map((e) => ({ status: e.status, createdAt: e.createdAt })),
     items: order.items.map((i) => `${i.qty} × ${i.sizeKg}kg`).join(", "),
     riderName: order.status === "OUT_FOR_DELIVERY" ? order.shipment?.riderName ?? null : null,

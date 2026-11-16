@@ -1,37 +1,43 @@
 import { describe, expect, it } from "vitest";
-import { bestOfferPerSize, hqFeeFor, routeOrder, withinBand, type Offer } from "@/lib/network-rules";
+import { canFill, couponStoreIssue, hqFeeFor, sortStores, withinBand, type Offer } from "@/lib/network-rules";
 
 const fee = { baseFeeKobo: 100_000, perKgFeeKobo: 2_000, minOrderKg: null, minOrderKobo: null, etaHours: 24, terms: null };
 const v = (variantId: string, price: number | null, available: number) =>
   ({ variantId, sizeKg: Number(variantId), retailPriceKobo: price, wholesalePriceKobo: null, available, active: true });
-const offer = (id: string, isHq: boolean, variants: ReturnType<typeof v>[], ready = true): Offer =>
-  ({ distributorId: id, name: id, isHq, ready, fee, variants });
+const offer = (id: string, isHq: boolean, variants: ReturnType<typeof v>[], extra: Partial<Offer> = {}): Offer =>
+  ({ distributorId: id, slug: id, name: id, isHq, ready: true, address: null, hours: null, pickup: true, joinsHqPromotions: isHq, fee, variants, ...extra });
 
-const gova = offer("gova", false, [v("50", 8_400_000, 10), v("5", 950_000, 0)]);
-const hq = offer("hq", true, [v("50", 8_500_000, 40), v("5", 950_000, 60)]);
+const gova = offer("Gova", false, [v("50", 8_400_000, 10), v("5", 950_000, 0)]);
+const hq = offer("HQ", true, [v("50", 8_500_000, 40), v("5", 950_000, 60)]);
+const kubwa = offer("Kubwa Foods", false, [v("50", 8_300_000, 0), v("5", 900_000, 5)], { fee: { ...fee, baseFeeKobo: 50_000 } });
 
-describe("order routing", () => {
-  it("sends the order to the area's distributor when it has everything", () => {
-    expect(routeOrder([{ variantId: "50", qty: 2 }], gova, hq)).toEqual({ offer: gova, routedToHq: false });
+describe("store list for an area", () => {
+  it("puts stores with the chosen size in stock first, then the cheapest", () => {
+    expect(sortStores([hq, kubwa, gova], "50").map((o) => o.name)).toEqual(["Gova", "HQ", "Kubwa Foods"]);
+    expect(sortStores([hq, kubwa, gova], "5").map((o) => o.name)).toEqual(["Kubwa Foods", "HQ", "Gova"]);
   });
-  it("falls back to HQ when the distributor is short of any bag", () => {
-    expect(routeOrder([{ variantId: "50", qty: 1 }, { variantId: "5", qty: 1 }], gova, hq)).toEqual({ offer: hq, routedToHq: true });
-    expect(routeOrder([{ variantId: "50", qty: 11 }], gova, hq).offer?.distributorId).toBe("hq");
+  it("breaks price ties by the lower delivery fee, and doesn't favour HQ", () => {
+    const twin = offer("Twin", false, [v("50", 8_500_000, 3)], { fee: { ...fee, baseFeeKobo: 10_000 } });
+    expect(sortStores([hq, twin], "50").map((o) => o.name)).toEqual(["Twin", "HQ"]);
   });
-  it("uses HQ for areas without a distributor, or whose distributor isn't ready", () => {
-    expect(routeOrder([{ variantId: "50", qty: 1 }], null, hq)).toEqual({ offer: hq, routedToHq: false });
-    expect(routeOrder([{ variantId: "50", qty: 1 }], { ...gova, ready: false }, hq).offer?.distributorId).toBe("hq");
-  });
-  it("keeps the order with the distributor when nobody can fill it (so the cart explains why)", () => {
-    expect(routeOrder([{ variantId: "50", qty: 99 }], gova, hq).offer?.distributorId).toBe("gova");
+  it("knows whether a store can supply the whole cart", () => {
+    expect(canFill(gova, [{ variantId: "50", qty: 10 }])).toBe(true);
+    expect(canFill(gova, [{ variantId: "50", qty: 11 }])).toBe(false);
+    expect(canFill(gova, [{ variantId: "5", qty: 1 }])).toBe(false);
+    expect(canFill({ ...gova, ready: false }, [{ variantId: "50", qty: 1 }])).toBe(false);
   });
 });
 
-describe("product page offers", () => {
-  it("shows each size from the distributor, or HQ where the distributor has none", () => {
-    const o = bestOfferPerSize(gova, hq);
-    expect(o.find((x) => x.variantId === "50")?.from.distributorId).toBe("gova");
-    expect(o.find((x) => x.variantId === "5")?.from.distributorId).toBe("hq");
+describe("which coupons a store accepts", () => {
+  const govaStore = { distributorId: "Gova", isHq: false, joinsHqPromotions: false };
+  it("accepts a store's own codes only at that store", () => {
+    expect(couponStoreIssue({ distributorId: "Gova" }, govaStore)).toBeNull();
+    expect(couponStoreIssue({ distributorId: "Gova" }, { distributorId: "hq", isHq: true, joinsHqPromotions: true })).toBe("COUPON_WRONG_SELLER");
+  });
+  it("accepts HQ codes and points coupons at HQ and at stores that joined HQ promotions", () => {
+    expect(couponStoreIssue({ distributorId: null }, { distributorId: "hq", isHq: true, joinsHqPromotions: false })).toBeNull();
+    expect(couponStoreIssue({ distributorId: null }, govaStore)).toBe("COUPON_STORE_NOT_IN_PROMO");
+    expect(couponStoreIssue({ distributorId: null }, { ...govaStore, joinsHqPromotions: true })).toBeNull();
   });
 });
 

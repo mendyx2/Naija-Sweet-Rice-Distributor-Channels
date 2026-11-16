@@ -8,7 +8,7 @@ import { GiftIcon, ShieldIcon, StoreIcon, TruckIcon } from "@/components/icons";
 
 const benefits = [
   { Icon: TruckIcon, title: "Abuja delivery", text: "Across Abuja, plus Suleja, Mararaba, Nyanya & more" },
-  { Icon: StoreIcon, title: "Free store pickup", text: "Collect from our flagship store" },
+  { Icon: StoreIcon, title: "Free store pickup", text: "Collect from a store near you" },
   { Icon: ShieldIcon, title: "Bag replacement", text: "Damaged bag? We replace it within 48h of delivery" },
   { Icon: GiftIcon, title: "Purchase points", text: "Every ₦100 earns a point towards a discount" },
 ];

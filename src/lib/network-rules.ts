@@ -22,10 +22,15 @@ export type OfferFee = {
 
 export type Offer = {
   distributorId: string;
+  slug: string;
   name: string;
   isHq: boolean;
-  ready: boolean; // active, has bank details and a delivery fee for the area
-  fee: OfferFee | null;
+  ready: boolean; // approved, active and has bank details
+  address: string | null;
+  hours: string | null;
+  pickup: boolean; // customers can collect from the store
+  joinsHqPromotions: boolean;
+  fee: OfferFee | null; // delivery fee into the chosen area; null = the store doesn't deliver there
   variants: OfferVariant[];
 };
 
@@ -37,8 +42,9 @@ export function withinBand(price: number | null, min: number | null, max: number
   return true;
 }
 
-function canFill(offer: Offer | null, lines: { variantId: string; qty: number }[], wholesale = false): boolean {
-  if (!offer?.ready || !offer.fee) return false;
+/** Can this store supply every line (priced, active, enough stock)? */
+export function canFill(offer: Offer | null, lines: { variantId: string; qty: number }[], wholesale = false): boolean {
+  if (!offer?.ready) return false;
   return lines.every((l) => {
     const v = offer.variants.find((x) => x.variantId === l.variantId);
     const price = v && (wholesale && v.wholesalePriceKobo != null ? v.wholesalePriceKobo : v.retailPriceKobo);
@@ -46,37 +52,37 @@ function canFill(offer: Offer | null, lines: { variantId: string; qty: number }[
   });
 }
 
-export type Routing = { offer: Offer | null; routedToHq: boolean };
-
 /**
- * One distributor per area. The area's distributor fulfils the order if it can
- * supply every line; otherwise HQ does (if it can). If neither can, the order
- * stays with whoever should normally serve it so the cart shows why.
+ * Order of the store list a customer sees for their area: stores that have the
+ * chosen size in stock first, then the lowest price for it, then the lowest
+ * delivery fee, then by name. No store is favoured, HQ included.
  */
-export function routeOrder(
-  lines: { variantId: string; qty: number }[],
-  areaOwner: Offer | null,
-  hq: Offer | null,
-  wholesale = false,
-): Routing {
-  const owner = areaOwner && !areaOwner.isHq ? areaOwner : null;
-  if (owner && canFill(owner, lines, wholesale)) return { offer: owner, routedToHq: false };
-  if (canFill(hq, lines, wholesale)) return { offer: hq, routedToHq: !!owner };
-  if (owner?.ready && owner.fee) return { offer: owner, routedToHq: false };
-  return { offer: hq?.ready ? hq : null, routedToHq: false };
+export function sortStores(stores: Offer[], variantId?: string | null): Offer[] {
+  const price = (o: Offer) => o.variants.find((v) => v.variantId === variantId)?.retailPriceKobo ?? Number.MAX_SAFE_INTEGER;
+  const inStock = (o: Offer) => {
+    const v = variantId ? o.variants.find((x) => x.variantId === variantId) : null;
+    return variantId ? !!v && v.active && v.retailPriceKobo != null && v.available > 0 : o.variants.some((x) => x.available > 0 && x.retailPriceKobo != null);
+  };
+  return [...stores].sort((a, b) =>
+    Number(inStock(b)) - Number(inStock(a))
+    || price(a) - price(b)
+    || (a.fee?.baseFeeKobo ?? Number.MAX_SAFE_INTEGER) - (b.fee?.baseFeeKobo ?? Number.MAX_SAFE_INTEGER)
+    || a.name.localeCompare(b.name));
 }
 
-/** Per-size offer for the product page: the area's distributor if it can sell that size, else HQ. */
-export function bestOfferPerSize(areaOwner: Offer | null, hq: Offer | null) {
-  const owner = areaOwner && !areaOwner.isHq && areaOwner.ready ? areaOwner : null;
-  const sizes = new Set([...(owner?.variants ?? []), ...(hq?.variants ?? [])].map((v) => v.variantId));
-  return [...sizes].map((variantId) => {
-    const o = owner?.variants.find((v) => v.variantId === variantId);
-    if (o && o.active && o.retailPriceKobo != null && o.available > 0) return { ...o, from: owner! };
-    const h = hq?.ready ? hq.variants.find((v) => v.variantId === variantId) : undefined;
-    if (h && h.active && h.retailPriceKobo != null && h.available > 0) return { ...h, from: hq! };
-    return { ...(o ?? h)!, from: (owner ?? hq)! };
-  });
+export type CouponStoreIssue = "COUPON_WRONG_SELLER" | "COUPON_STORE_NOT_IN_PROMO";
+
+/**
+ * Which coupons a store accepts. A store's own codes work only at that store.
+ * HQ codes and points coupons (paid for by HQ) work at HQ and at stores that
+ * have chosen to take part in HQ promotions.
+ */
+export function couponStoreIssue(
+  coupon: { distributorId: string | null },
+  store: { distributorId: string; isHq: boolean; joinsHqPromotions: boolean },
+): CouponStoreIssue | null {
+  if (coupon.distributorId) return coupon.distributorId === store.distributorId ? null : "COUPON_WRONG_SELLER";
+  return store.isHq || store.joinsHqPromotions ? null : "COUPON_STORE_NOT_IN_PROMO";
 }
 
 /** HQ fee owed on an order: fixed amount per bag (by size), only on distributor (non-HQ) sales. */

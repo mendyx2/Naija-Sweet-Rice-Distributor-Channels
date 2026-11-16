@@ -15,7 +15,7 @@ async function Staff() {
   const members = await db.distributorMember.findMany({ where: { distributorId: distributor.id }, include: { user: true }, orderBy: { createdAt: "asc" } });
   return (
     <>
-      <PartnerNav current="staff" name={distributor.name} isOwner={member.role === "OWNER"} />
+      <PartnerNav current="staff" name={distributor.name} status={distributor.status} isOwner={member.role === "OWNER"} />
       <h1 className="font-display text-2xl font-bold">Staff</h1>
       <p className="mt-1 text-sm text-muted">Staff can handle orders, stock and shop sales. Only owners can change prices, delivery fees and staff.</p>
       <ul className="mt-4 card divide-y divide-border text-sm">

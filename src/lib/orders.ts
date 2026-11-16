@@ -25,7 +25,7 @@ type CreateOrderInput = {
   type?: OrderType;
   parentOrderId?: string | null;
   distributorId: string;
-  routedToHq?: boolean;
+  fulfillment?: "DELIVERY" | "PICKUP";
   hqFeeKobo?: number;
   hqFundedDiscountKobo?: number;
   paymentMethod: PaymentMethod;
@@ -76,7 +76,7 @@ export async function createPendingOrder(input: CreateOrderInput) {
             type: input.type ?? "STANDARD",
             parentOrderId: input.parentOrderId ?? null,
             distributorId: input.distributorId,
-            routedToHq: input.routedToHq ?? false,
+            fulfillment: input.fulfillment ?? "DELIVERY",
             hqFeeKobo: input.hqFeeKobo ?? 0,
             hqFundedDiscountKobo: input.hqFundedDiscountKobo ?? 0,
             paymentMethod: input.paymentMethod,
@@ -97,7 +97,7 @@ export async function createPendingOrder(input: CreateOrderInput) {
             totalKobo: input.totalKobo,
             reservedUntil: new Date(Date.now() + PAYMENT_HOLD_HOURS * 3600_000),
             items: { create: input.lines.map(({ variantId, qty, unitPriceKobo, sizeKg }) => ({ variantId, qty, unitPriceKobo, sizeKg })) },
-            events: { create: { status: "PENDING_PAYMENT", note: input.routedToHq ? "Order placed (sent to HQ: area distributor short of stock)" : "Order placed" } },
+            events: { create: { status: "PENDING_PAYMENT", note: input.fulfillment === "PICKUP" ? "Order placed (pickup at the store)" : "Order placed" } },
           },
           include: { distributor: true },
         });

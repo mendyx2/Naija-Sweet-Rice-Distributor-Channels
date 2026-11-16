@@ -23,15 +23,17 @@ async function Checkout({ searchParams }: Pick<PageProps<"/checkout">, "searchPa
   const sp = await searchParams;
   const zoneId = typeof sp.zone === "string" ? sp.zone : "";
   const coupon = typeof sp.coupon === "string" ? sp.coupon : "";
+  const storeId = typeof sp.store === "string" ? sp.store.slice(0, 40) : "";
+  const fulfillment = sp.fulfillment === "PICKUP" ? "PICKUP" : "DELIVERY";
   const [user, zones] = await Promise.all([getCurrentUser(), getZones()]);
 
   if (!user) {
-    const next = `/checkout?${new URLSearchParams({ zone: zoneId, ...(coupon ? { coupon } : {}) })}`;
+    const next = `/checkout?${new URLSearchParams({ zone: zoneId, store: storeId, fulfillment, ...(coupon ? { coupon } : {}) })}`;
     return (
       <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_380px]">
         <section className="card p-6 sm:p-8 max-w-xl">
           <p className="text-sm font-semibold text-brand">Step 1 of 2</p>
-          <h2 className="font-display text-2xl font-bold mt-1">Confirm your phone number</h2>
+          <h2 className="font-display text-2xl font-bold mt-1">Sign in with your email</h2>
           <p className="mt-2 text-muted">
             We&apos;ll email you a 6-digit code. Your account keeps your orders and purchase points.
           </p>
@@ -46,6 +48,8 @@ async function Checkout({ searchParams }: Pick<PageProps<"/checkout">, "searchPa
       zones={zones.map((z) => ({ id: z.id, name: z.name, kind: z.kind }))}
       initialZoneId={zones.some((z) => z.id === zoneId) ? zoneId : ""}
       initialCoupon={coupon}
+      storeId={storeId}
+      fulfillment={fulfillment}
       defaults={{ name: user.name ?? "", phone: user.phone ? formatNgPhone(user.phone) : "", email: user.email ?? "" }}
     />
   );

@@ -29,7 +29,7 @@ enum ApprovalStatus {
 
 model User {
   id           String   @id @default(cuid())
-  phone        String?   @unique // E.164, e.g. +2348012345678. Taken from the first order; not used to sign in
+  phone        String?  @unique // E.164, e.g. +2348012345678. Taken from the first order; not used to sign in
   email        String?  @unique // lower-case; used to sign in (email code)
   name         String?
   passwordHash String?
@@ -207,10 +207,8 @@ model DeliveryZone {
   terms           String? // shown at checkout, e.g. "Delivery Tue & Fri only"
   active          Boolean              @default(true)
   sortOrder       Int                  @default(0)
-  /// Distributor responsible for this area (one per area). Null = served by HQ.
-  /// The fee fields above are HQ's own delivery fees for the area.
-  distributorId   String?
-  distributor     Distributor?         @relation(fields: [distributorId], references: [id])
+  /// The fee fields above are HQ's own delivery fees for the area. Other stores cover an area by
+  /// setting their own fee for it (DistributorZoneFee); several stores can serve the same area.
   addresses       Address[]
   orders          Order[]
   distributorFees DistributorZoneFee[]
@@ -243,6 +241,7 @@ model Order {
   guestPhone      String?
   contactPhone    String
   contactEmail    String?
+  fulfillment     Fulfillment       @default(DELIVERY)
   customerName    String
   note            String?
   reservedUntil   DateTime? // stock is held for unpaid orders until this time
@@ -518,34 +517,48 @@ model AuditLog {
 // ─── Distributor network ────────────────────────────────────────────────────
 
 enum DistributorStatus {
+  PENDING // registered, waiting for HQ approval (store hidden from customers)
   ACTIVE
   SUSPENDED
+  REJECTED
+}
+
+enum Fulfillment {
+  DELIVERY
+  PICKUP // customer collects from the store's address
 }
 
 /// A distributor runs fulfilment for its areas and is paid directly by customers
 /// (bank transfer). HQ (the producer's flagship) is a distributor with isHq = true
 /// and serves every area as the fallback.
 model Distributor {
-  id            String            @id @default(cuid())
-  name          String
-  slug          String            @unique
-  isHq          Boolean           @default(false)
-  status        DistributorStatus @default(ACTIVE)
-  phone         String?
-  address       String?
-  hours         String?
-  slaHours      Int               @default(4) // time to confirm a payment before HQ is alerted
+  id                String            @id @default(cuid())
+  name              String
+  slug              String            @unique
+  isHq              Boolean           @default(false)
+  status            DistributorStatus @default(ACTIVE)
+  phone             String?
+  address           String?
+  hours             String?
+  slaHours          Int               @default(4) // time to confirm a payment before HQ is alerted
   /// Where staff alerts (new orders, payments, restocks, statements) are emailed. Optional.
-  alertEmail    String?
+  alertEmail        String?
   /// Bank details customers pay into. Only HQ can change them (logged, distributor alerted).
-  bankName      String?
-  accountNumber String?
-  accountName   String?
-  bankUpdatedAt DateTime?
-  createdAt     DateTime          @default(now())
+  bankName          String?
+  accountNumber     String?
+  accountName       String?
+  bankUpdatedAt     DateTime?
+  /// Store takes part in HQ promotions and points coupons (HQ pays those discounts). HQ always does.
+  joinsHqPromotions Boolean           @default(false)
+  /// Customers can collect from the store's address.
+  pickupEnabled     Boolean           @default(true)
+  /// Self-registration details for HQ's review.
+  cacNumber         String?
+  approvedAt        DateTime?
+  approvedBy        String?
+  createdAt         DateTime          @default(now())
 
   members     DistributorMember[]
-  zones       DeliveryZone[]
   zoneFees    DistributorZoneFee[]
   prices      DistributorPrice[]
   stock       DistributorStock[]

@@ -22,8 +22,8 @@ export async function generateMetadata({ params }: PageProps<"/distributors/[slu
   if (!d) return {};
   const areas = d.zones.map((z) => z.name).join(", ");
   return {
-    title: `${d.name}: authorised ${site.name} distributor in ${areas}`,
-    description: `Buy ${site.name} from ${d.name}, the authorised distributor for ${areas}, Abuja. Order online for delivery.`,
+    title: `${d.name}: authorised ${site.name} store, ${areas}`,
+    description: `Buy ${site.name} from ${d.name}, an authorised store delivering to ${areas}, Abuja. Order online for delivery${d.pickup ? " or pickup" : ""}.`,
     alternates: { canonical: `/distributors/${d.slug}` },
   };
 }
@@ -55,7 +55,7 @@ async function Distributor({ params }: Pick<PageProps<"/distributors/[slug]">, "
       <section className="mt-10">
         <h2 className="font-display text-2xl font-bold">Delivers to</h2>
         <p className="mt-1 text-muted">Choose your area to shop with {d.name}: prices, stock and delivery fees are theirs.</p>
-        <ShopHere zones={d.zones.map((z) => ({ id: z.id, name: z.name }))} />
+        <ShopHere storeId={d.id} zones={d.zones.map((z) => ({ id: z.id, name: z.name }))} />
         <p className="mt-4 text-sm text-muted">
           Delivery details per area:{" "}
           {d.zones.map((z, i) => <span key={z.id}>{i ? ", " : ""}<Link href={`/delivery/${z.slug}`} className="underline">{z.name}</Link></span>)}

@@ -11,9 +11,15 @@ const TABS = [
   { href: "/partner/staff", label: "Staff", key: "staff", owner: true },
 ] as const;
 
-export function PartnerNav({ current, name, isOwner }: { current: (typeof TABS)[number]["key"]; name: string; isOwner: boolean }) {
+export function PartnerNav({ current, name, isOwner, status }: { current: (typeof TABS)[number]["key"]; name: string; isOwner: boolean; status?: string }) {
   return (
     <div className="mb-6">
+      {status === "PENDING" && (
+        <p role="status" className="mb-4 rounded-xl bg-cta/30 p-3 text-sm">
+          <strong>Your store is waiting for HQ approval.</strong> Customers can&apos;t see it yet. Meanwhile, set your prices, delivery areas and fees under
+          {" "}<Link href="/partner/settings" className="underline">Prices &amp; delivery</Link>. HQ will email you when it&apos;s approved and will add your opening stock.
+        </p>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted">Partner portal · <strong className="text-foreground">{name}</strong></p>
         <form action={signOut}><button className="text-sm text-muted underline">Sign out</button></form>

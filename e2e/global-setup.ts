@@ -37,16 +37,24 @@ export default async function globalSetup() {
     if (p.fee && fee?.feeKobo !== kobo(p.fee)) await db.hqFeeRate.create({ data: { variantId: id, feeKobo: kobo(p.fee), setBy: "e2e" } });
     await db.distributorStock.update({ where: { distributorId_variantId: { distributorId: "hq", variantId: id } }, data: { onHand: 200, held: 0, inTransit: 0 } });
   }
-  await db.distributor.update({ where: { id: "hq" }, data: { bankName: "Zenith Bank", accountNumber: "1012345678", accountName: "Naija Sweet Rice Ltd" } });
+  await db.distributor.update({
+    where: { id: "hq" },
+    data: { bankName: "Zenith Bank", accountNumber: "1012345678", accountName: "Naija Sweet Rice Ltd", address: "Plot 1 Aminu Kano Crescent, Wuse II, Abuja", pickupEnabled: true },
+  });
+  // Stores opened by earlier test runs stay out of the way.
+  await db.distributor.updateMany({ where: { name: { startsWith: "E2E " } }, data: { status: "REJECTED" } });
 
   // Gova Max Ltd: Gwarinpa + Kubwa, own prices and fees, known stock, an owner login
   const gova = await db.distributor.update({
     where: { slug: "gova-max-ltd" },
-    data: { status: "ACTIVE", phone: "+2348120004444", bankName: "GTBank", accountNumber: "0234567891", accountName: "Gova Max Ltd" },
+    data: {
+      status: "ACTIVE", phone: "+2348120004444", bankName: "GTBank", accountNumber: "0234567891", accountName: "Gova Max Ltd",
+      address: "Kaura Internal Market, Abuja FCT", pickupEnabled: true, joinsHqPromotions: false,
+    },
   });
-  for (const name of ["Gwarinpa", "Kubwa"]) {
-    const z = await db.deliveryZone.findFirstOrThrow({ where: { name } });
-    await db.deliveryZone.update({ where: { id: z.id }, data: { distributorId: gova.id } });
+  const govaAreas = await db.deliveryZone.findMany({ where: { name: { in: ["Gwarinpa", "Kubwa"] } } });
+  await db.distributorZoneFee.deleteMany({ where: { distributorId: gova.id, zoneId: { notIn: govaAreas.map((z) => z.id) } } });
+  for (const z of govaAreas) {
     const fee = { baseFeeKobo: kobo(1_500), perKgFeeKobo: kobo(20), etaHours: 24, minOrderKg: null, minOrderKobo: null };
     await db.distributorZoneFee.upsert({ where: { distributorId_zoneId: { distributorId: gova.id, zoneId: z.id } }, create: { distributorId: gova.id, zoneId: z.id, ...fee }, update: fee });
   }

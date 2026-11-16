@@ -22,7 +22,7 @@ async function Alerts() {
 
   return (
     <>
-      <PartnerNav current="alerts" name={distributor.name} isOwner={isOwner} />
+      <PartnerNav current="alerts" name={distributor.name} status={distributor.status} isOwner={isOwner} />
       <h1 className="font-display text-2xl font-bold">Alerts</h1>
       <p className="mt-1 text-sm text-muted">
         Get told straight away about new orders, customers saying they&apos;ve paid, invoices and stock deliveries, free on Telegram and/or by email.

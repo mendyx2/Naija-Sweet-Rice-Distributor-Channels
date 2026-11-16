@@ -54,9 +54,9 @@ test("the network map shows who covers each area, with a table of the same facts
   await page.goto("/ops/network");
   await expect(page.getByRole("heading", { name: "Network map" })).toBeVisible();
   await expect(page.getByRole("group", { name: /Schematic map of Abuja/ })).toBeVisible();
-  const areas = page.locator("section", { hasText: "Served by" });
+  const areas = page.locator("section", { hasText: "Stores (besides HQ)" });
   await expect(areas.getByRole("row", { name: /^Gwarinpa Gova Max Ltd/ })).toBeVisible();
-  await expect(areas.getByRole("row", { name: /^Garki HQ/ })).toBeVisible();
-  await expect(areas.getByRole("row", { name: /^Suleja · min order HQ/ })).toBeVisible();
+  await expect(areas.getByRole("row", { name: /^Garki none/ })).toBeVisible();
+  await expect(areas.getByRole("row", { name: /^Suleja · min order none/ })).toBeVisible();
   if (process.env.E2E_SCREENSHOTS) await page.screenshot({ path: `${process.env.E2E_SCREENSHOTS}/network-mobile.png`, fullPage: true });
 });

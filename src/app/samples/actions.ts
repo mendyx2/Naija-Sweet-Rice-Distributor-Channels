@@ -8,7 +8,7 @@ import { normalizeNgPhone } from "@/lib/phone";
 import { deliveryFeeKobo } from "@/lib/pricing";
 import { sampleAddressKey } from "@/lib/samples";
 import { CheckoutError, cancelUnpaidOrder, createPendingOrder, markOrderPaid } from "@/lib/orders";
-import { offersForZone, payToSnapshot } from "@/lib/network";
+import { offerFor, payToSnapshot } from "@/lib/network";
 import { PAYMENT_HOLD_HOURS } from "@/lib/network-rules";
 import { notifyNewTransferOrder } from "@/lib/notify";
 import { rateLimit } from "@/lib/rate-limit";
@@ -19,6 +19,8 @@ const schema = z.object({
   name: z.string().trim().min(2, "Please enter your full name.").max(80),
   phone: z.string().max(30),
   zoneId: z.string().min(1, "Please choose your area.").max(40),
+  storeId: z.string().min(1, "Please choose a store.").max(40),
+  fulfillment: z.enum(["DELIVERY", "PICKUP"]),
   street: z.string().trim().max(300).optional(),
   landmark: z.string().trim().max(200).optional(),
 });
@@ -34,35 +36,24 @@ export async function requestSample(_prev: SampleState, formData: FormData): Pro
   const phone = normalizeNgPhone(f.phone);
   if (!phone) return { ok: false, error: "Please enter a valid Nigerian mobile number." };
 
-  const zone = await db.deliveryZone.findUnique({ where: { id: f.zoneId } });
-  if (!zone || !zone.active || zone.kind === "NEARBY_TOWN") {
-    return { ok: false, error: "Free samples are available for pickup or delivery within Abuja." };
-  }
-  const isPickup = zone.kind === "PICKUP";
+  const so = await sampleOffer(f.zoneId, f.storeId, f.fulfillment);
+  if (!so.ok) return { ok: false, error: so.error };
+  const { zone, variant, from, fee } = so;
+  const isPickup = f.fulfillment === "PICKUP";
   if (!isPickup && (!f.street || f.street.length < 5)) return { ok: false, error: "Please enter your delivery address." };
 
   const addressKey = isPickup ? `pickup:${user.id}` : sampleAddressKey(zone.id, f.street!);
   const existing = await db.sampleClaim.findFirst({ where: { OR: [{ userId: user.id }, { addressKey }] } });
   if (existing) return { ok: false, error: "A free sample has already been requested for this account or address." };
 
-  const variant = await db.variant.findFirst({ where: { isSampleSize: true, active: true } });
-  if (!variant) return { ok: false, error: "Free samples aren't available right now. Please check back soon." };
-
-  // The area's distributor sends the sample if it has one in stock; otherwise HQ does.
-  const { owner, hq } = await offersForZone(zone.id);
-  const hasSample = (o: typeof hq | null) => !!o?.ready && !!o.fee && (o.variants.find((v) => v.variantId === variant.id)?.available ?? 0) >= 1;
-  const from = owner && !owner.isHq && hasSample(owner) ? owner : hasSample(hq) ? hq : null;
-  if (!from) return { ok: false, error: "Free samples are out of stock right now. Please check back soon." };
-
   const distributor = await db.distributor.findUniqueOrThrow({ where: { id: from.distributorId } });
-  const fee = deliveryFeeKobo({ ...zone, ...from.fee!, active: true }, variant.sizeKg);
   const payTo = payToSnapshot(distributor);
   let order;
   try {
     order = await createPendingOrder({
       type: "SAMPLE",
       distributorId: distributor.id,
-      routedToHq: !!owner && !owner.isHq && from.isHq,
+      fulfillment: f.fulfillment,
       paymentMethod: fee === 0 ? "NONE" : "BANK_TRANSFER",
       payTo: fee === 0 ? null : payTo,
       userId: user.id,
@@ -104,15 +95,32 @@ export async function requestSample(_prev: SampleState, formData: FormData): Pro
   return { ok: true, url: `/orders/${order.number}` };
 }
 
-/** What the sample will cost to deliver to this area, and who sends it (the area's distributor or HQ). */
-export async function getSampleQuote(zoneId: string): Promise<{ feeKobo: number; seller: string } | null> {
-  if (!z.string().min(1).max(40).safeParse(zoneId).success) return null;
-  const zone = await db.deliveryZone.findUnique({ where: { id: zoneId } });
-  const variant = await db.variant.findFirst({ where: { isSampleSize: true, active: true } });
-  if (!zone || !variant || zone.kind === "NEARBY_TOWN") return null;
-  const { owner, hq } = await offersForZone(zone.id);
-  const hasSample = (o: typeof hq | null) => !!o?.ready && !!o.fee && (o.variants.find((v) => v.variantId === variant.id)?.available ?? 0) >= 1;
-  const from = owner && !owner.isHq && hasSample(owner) ? owner : hasSample(hq) ? hq : null;
-  if (!from) return null;
-  return { feeKobo: deliveryFeeKobo({ ...zone, ...from.fee!, active: true }, variant.sizeKg), seller: from.name };
+type SampleOffer =
+  | { ok: false; error: string }
+  | { ok: true; zone: NonNullable<Awaited<ReturnType<typeof offerFor>>["zone"]>; variant: { id: string; sizeKg: number }; from: NonNullable<Awaited<ReturnType<typeof offerFor>>["offer"]>; fee: number };
+
+/** The free sample from the chosen store: it must have one in stock and deliver to the area (or offer pickup). */
+async function sampleOffer(zoneId: string, storeId: string, fulfillment: "DELIVERY" | "PICKUP"): Promise<SampleOffer> {
+  const [{ zone, offer }, variant] = await Promise.all([
+    offerFor(storeId, zoneId),
+    db.variant.findFirst({ where: { isSampleSize: true, active: true } }),
+  ]);
+  if (!zone || !zone.active || zone.kind === "NEARBY_TOWN") return { ok: false, error: "Free samples are available within Abuja." };
+  if (!variant) return { ok: false, error: "Free samples aren't available right now. Please check back soon." };
+  if (!offer?.ready || (offer.variants.find((v) => v.variantId === variant.id)?.available ?? 0) < 1) {
+    return { ok: false, error: "This store has no free samples right now. Please choose another store." };
+  }
+  if (fulfillment === "PICKUP") {
+    if (!offer.pickup) return { ok: false, error: "This store doesn't offer pickup. Choose delivery." };
+    return { ok: true, zone, variant, from: offer, fee: 0 };
+  }
+  if (!offer.fee) return { ok: false, error: "This store doesn't deliver to your area. Choose pickup, or another store." };
+  return { ok: true, zone, variant, from: offer, fee: deliveryFeeKobo({ ...zone, ...offer.fee, active: true }, variant.sizeKg) };
+}
+
+/** What the sample will cost from the chosen store: its delivery fee into the area, or free pickup. */
+export async function getSampleQuote(zoneId: string, storeId: string, fulfillment: "DELIVERY" | "PICKUP"): Promise<{ feeKobo: number; seller: string } | { error: string } | null> {
+  if (![zoneId, storeId].every((x) => z.string().min(1).max(40).safeParse(x).success)) return null;
+  const so = await sampleOffer(zoneId, storeId, fulfillment === "PICKUP" ? "PICKUP" : "DELIVERY");
+  return so.ok ? { feeKobo: so.fee, seller: so.from.name } : { error: so.error };
 }

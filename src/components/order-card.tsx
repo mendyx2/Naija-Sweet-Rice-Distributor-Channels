@@ -10,7 +10,7 @@ const when = (d: Date) => d.toLocaleString("en-NG", { dateStyle: "medium", timeS
 /** One order for staff (HQ in /ops, distributors in /partner). Controls are passed in. */
 export function OrderCard({ o, showSeller = false, children }: { o: CardOrder; showSeller?: boolean; children?: ReactNode }) {
   const addr = o.addressSnapshot as { street?: string; landmark?: string | null };
-  const pickup = o.zone.kind === "PICKUP";
+  const pickup = o.fulfillment === "PICKUP";
   return (
     <li className="card p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -26,7 +26,7 @@ export function OrderCard({ o, showSeller = false, children }: { o: CardOrder; s
       {showSeller && o.distributor && (
         <p className="mt-2 text-sm">
           <span className="text-muted">Seller:</span> <strong>{o.distributor.isHq ? "HQ" : o.distributor.name}</strong>
-          {o.routedToHq && <span className="ml-2 rounded-full bg-cta/30 px-2 py-0.5 text-xs font-semibold">Sent to HQ: area distributor short of stock</span>}
+          {o.routedToHq && <span className="ml-2 rounded-full bg-cta/30 px-2 py-0.5 text-xs font-semibold">Sent to HQ (older order)</span>}
         </p>
       )}
       <div className="mt-3 grid gap-3 text-sm sm:grid-cols-3">
@@ -37,7 +37,7 @@ export function OrderCard({ o, showSeller = false, children }: { o: CardOrder; s
         </p>
         <p>
           <span className="text-muted block">{pickup ? "Pickup" : `Deliver to ${o.zone.name}`}</span>
-          {pickup ? "Flagship store" : `${addr.street ?? ""}${addr.landmark ? ` (near ${addr.landmark})` : ""}`}
+          {pickup ? "Customer collects from the store" : `${addr.street ?? ""}${addr.landmark ? ` (near ${addr.landmark})` : ""}`}
         </p>
       </div>
       {o.note && <p className="mt-2 rounded-lg bg-background p-2 text-sm">Note: {o.note}</p>}

@@ -25,10 +25,20 @@ export const ZONE_POSITIONS: Record<string, { x: number; y: number }> = {
   kuje: { x: 330, y: 770 },
 };
 
-/** Categorical colours for distributors, assigned in a fixed order (oldest distributor first), never cycled. */
-export const DISTRIBUTOR_COLOURS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"];
-/** Colour for areas HQ serves itself, and for distributors past the eighth. */
+/** Outline for areas only HQ serves. */
 export const HQ_COLOUR = "#8a8a85";
+
+/**
+ * Coverage shading: one hue, light to dark, by how many stores besides HQ
+ * deliver to an area. `ink` is the colour of the order count drawn on the dot.
+ */
+export const COVERAGE_STEPS: { label: string; fill: string | null; ink: string }[] = [
+  { label: "HQ only", fill: null, ink: "#33332f" },
+  { label: "1 store", fill: "#86b6ef", ink: "#0d366b" },
+  { label: "2 stores", fill: "#3987e5", ink: "#ffffff" },
+  { label: "3+ stores", fill: "#1c5cab", ink: "#ffffff" },
+];
+export const coverageStep = (stores: number) => COVERAGE_STEPS[Math.min(stores, 3)];
 
 /** Dot radius grows with the square root of orders, so area ∝ orders. */
 export const dotRadius = (orders: number) => Math.min(26, 9 + Math.sqrt(orders) * 4);

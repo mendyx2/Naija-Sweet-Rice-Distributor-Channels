@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { requirePartner } from "@/lib/partner-auth";
 import { changeOrderStatus, confirmTransferReceived, reportTransferNotReceived } from "@/lib/order-actions";
 import { moveStock } from "@/lib/stock";
-import { cancelRestock, distributorMarksRestockPaid, markRestocksReceived, requestRestock, RestockError } from "@/lib/restock";
+import { markRestocksReceived } from "@/lib/restock";
 import { nairaToKobo, formatNaira } from "@/lib/money";
 import { withinBand } from "@/lib/network-rules";
 import { alertHq } from "@/lib/notify";
@@ -184,11 +184,18 @@ export async function savePrices(_prev: FormState, formData: FormData): Promise<
 
 export async function saveFees(_prev: FormState, formData: FormData): Promise<FormState> {
   const { distributor, actor } = await requirePartner({ ownerOnly: true });
-  const zones = await db.deliveryZone.findMany({ where: { distributorId: distributor.id } });
+  const zones = await db.deliveryZone.findMany({ where: { active: true, kind: { not: "PICKUP" } } });
   const num = (k: string) => { const v = nairaToKobo(String(formData.get(k) ?? "")); return v; };
   const int = (k: string) => { const s = String(formData.get(k) ?? "").trim(); return s === "" ? null : /^\d+$/.test(s) ? Number(s) : NaN; };
   const errors: string[] = [];
+  let areas = 0;
   for (const z of zones) {
+    // Unticked: the store no longer delivers there (customers there won't see it).
+    if (!formData.get(`on:${z.id}`)) {
+      await db.distributorZoneFee.deleteMany({ where: { distributorId: distributor.id, zoneId: z.id } });
+      continue;
+    }
+    areas++;
     const data = {
       baseFeeKobo: num(`base:${z.id}`) ?? 0, perKgFeeKobo: num(`perKg:${z.id}`) ?? 0,
       minOrderKg: int(`minKg:${z.id}`), etaHours: int(`eta:${z.id}`),
@@ -208,7 +215,17 @@ export async function saveFees(_prev: FormState, formData: FormData): Promise<Fo
   updateTag(TAGS.zones);
   refresh();
   if (errors.length) return { ok: false, message: `Saved the others. Please fix: ${errors.join(" ")}` };
-  return { ok: true, message: "Delivery fees saved." };
+  return { ok: true, message: `Saved. You deliver to ${areas} area${areas === 1 ? "" : "s"}.` };
+}
+
+export async function saveStoreOptions(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { distributor, actor } = await requirePartner({ ownerOnly: true });
+  const data = { pickupEnabled: !!formData.get("pickup"), joinsHqPromotions: !!formData.get("hqPromotions") };
+  await db.distributor.update({ where: { id: distributor.id }, data });
+  await db.auditLog.create({ data: { actor, action: "partner.store_options", entity: "Distributor", entityId: distributor.id, after: data } });
+  updateTag(TAGS.zones);
+  refresh();
+  return { ok: true, message: `Saved. Pickup ${data.pickupEnabled ? "on" : "off"}; Naija Sweet Rice promotions ${data.joinsHqPromotions ? "accepted" : "not accepted"}.` };
 }
 
 // ─── Staff (owners) ─────────────────────────────────────────────────────────
@@ -245,50 +262,6 @@ export async function removeStaff(formData: FormData) {
 }
 
 // ─── Buying stock from HQ ───────────────────────────────────────────────────
-
-export async function partnerRequestRestock(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { distributor, actor } = await requirePartner();
-  const variants = await db.variant.findMany();
-  const lines = [];
-  for (const v of variants) {
-    const qty = Number(formData.get(`want:${v.id}`) || 0);
-    if (!Number.isInteger(qty) || qty < 0 || qty > 100_000) return { ok: false, message: `${v.sizeKg}kg: enter a whole number of bags.` };
-    if (qty) lines.push({ variantId: v.id, sizeKg: v.sizeKg, qty });
-  }
-  const note = String(formData.get("note") ?? "").trim().slice(0, 300) || null;
-  try {
-    const r = await requestRestock(distributor.id, lines, note, actor);
-    refresh();
-    return { ok: true, message: `Request ${r.number} sent. HQ will confirm the quantities and send an invoice.` };
-  } catch (e) {
-    if (e instanceof RestockError) return { ok: false, message: e.message };
-    throw e;
-  }
-}
-
-export async function partnerRestockPaid(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { distributor } = await requirePartner();
-  try {
-    await distributorMarksRestockPaid(String(formData.get("id") ?? ""), distributor.id);
-    refresh();
-    return { ok: true, message: "Thanks. HQ will confirm once the money arrives and then dispatch." };
-  } catch (e) {
-    if (e instanceof RestockError) return { ok: false, message: e.message };
-    throw e;
-  }
-}
-
-export async function partnerCancelRestock(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { distributor, actor } = await requirePartner();
-  try {
-    await cancelRestock(String(formData.get("id") ?? ""), actor, distributor.id);
-    refresh();
-    return { ok: true, message: "Request cancelled." };
-  } catch (e) {
-    if (e instanceof RestockError) return { ok: false, message: e.message };
-    throw e;
-  }
-}
 
 // ─── Staff alerts (Telegram / email) ────────────────────────────────────────
 

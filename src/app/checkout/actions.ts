@@ -4,7 +4,7 @@ import { z } from "zod";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { rememberContact, requireUser, isApprovedSeller } from "@/lib/auth";
-import { priceCart, couponMessage } from "@/lib/checkout-data";
+import { priceCart, couponMessage, storeMessage } from "@/lib/checkout-data";
 import { describeIssue } from "@/lib/pricing";
 import { formatNaira } from "@/lib/money";
 import { normalizeNgPhone } from "@/lib/phone";
@@ -25,7 +25,9 @@ const schema = z.object({
       return z.NEVER;
     }
   }),
-  zoneId: z.string().min(1, "Please choose your delivery area.").max(40),
+  zoneId: z.string().min(1, "Please choose your area.").max(40),
+  storeId: z.string().min(1, "Please choose a store to buy from.").max(40),
+  fulfillment: z.enum(["DELIVERY", "PICKUP"]),
   coupon: z.string().max(40).optional(),
   name: z.string().trim().min(2, "Please enter your full name.").max(80),
   phone: z.string().max(30),
@@ -36,8 +38,8 @@ const schema = z.object({
 });
 
 /**
- * Places the order with the distributor serving the area (or HQ as fallback)
- * and shows the customer that distributor's bank details to pay by transfer.
+ * Places the order with the store the customer chose (delivery into their area,
+ * or pickup at the store) and shows that store's bank details to pay by transfer.
  */
 export async function placeOrder(_prev: CheckoutState, formData: FormData): Promise<CheckoutState> {
   const user = await requireUser("/checkout");
@@ -51,15 +53,19 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
   const phone = normalizeNgPhone(f.phone);
   if (!phone) return { ok: false, errors: ["Please enter a valid Nigerian mobile number for delivery."] };
 
-  const priced = await priceCart({ lines: f.lines, zoneId: f.zoneId, couponCode: f.coupon, userId: user.id, wholesale: isApprovedSeller(user) });
+  const priced = await priceCart({
+    lines: f.lines, zoneId: f.zoneId, storeId: f.storeId, fulfillment: f.fulfillment, couponCode: f.coupon, userId: user.id, wholesale: isApprovedSeller(user),
+  });
   const q = priced.quote;
-  if (!q || !priced.zone) return { ok: false, errors: ["Please choose your delivery area."] };
-  if (!priced.fulfiller) return { ok: false, errors: ["Online ordering isn't available in this area yet. Please contact us on WhatsApp."] };
+  if (!priced.zone) return { ok: false, errors: ["Please choose your area."] };
+  if (!q || !priced.fulfiller) return { ok: false, errors: [storeMessage(priced.storeIssue) ?? "Please choose a store to buy from."] };
+  const sMsg = storeMessage(priced.storeIssue, priced.fulfiller.name);
+  if (sMsg) return { ok: false, errors: [sMsg] };
 
   const errors = q.issues.map((i) => describeIssue(i, formatNaira));
   const cMsg = couponMessage(priced.couponIssue);
   if (cMsg) errors.push(cMsg);
-  const isPickup = priced.zone.kind === "PICKUP";
+  const isPickup = priced.fulfillment === "PICKUP";
   if (!isPickup && (!f.street || f.street.length < 5)) errors.push("Please enter your delivery address.");
   if (errors.length) return { ok: false, errors };
 
@@ -79,7 +85,7 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
   try {
     order = await createPendingOrder({
       distributorId: distributor.id,
-      routedToHq: priced.fulfiller.routedToHq,
+      fulfillment: priced.fulfillment,
       // HQ's fixed per-bag fee and HQ-funded discounts are recorded on distributor orders for the monthly statement.
       hqFeeKobo: hqFeeFor(q.lines, fees, distributor.isHq),
       // HQ promotions and points coupons are credited back to the distributor; a distributor's own codes are not.

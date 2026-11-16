@@ -17,7 +17,7 @@ export async function SiteHeader() {
   return (
     <>
       <aside aria-label="Delivery notice" className="bg-brand-strong text-white/90 text-xs sm:text-sm text-center px-4 py-2">
-        Delivery across Abuja &amp; nearby towns · <span className="text-cta font-semibold">Free pickup</span> at our flagship store
+        Delivery across Abuja &amp; nearby towns · <span className="text-cta font-semibold">Free pickup</span> from stores near you
       </aside>
       {/* Only the logo / account / cart row stays pinned, to leave room for content on phones. */}
       <header className="sticky top-0 z-30 border-b border-border bg-surface/95 backdrop-blur">

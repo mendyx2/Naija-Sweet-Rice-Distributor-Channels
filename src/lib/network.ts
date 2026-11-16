@@ -1,13 +1,17 @@
 import "server-only";
 import type { DeliveryZone, Distributor, Prisma } from "@prisma/client";
 import { db } from "./db";
-import { withinBand, type Offer, type OfferFee } from "./network-rules";
+import { sortStores, withinBand, type Offer, type OfferFee } from "./network-rules";
+import { site } from "./site";
 
 export const HQ_ID = "hq";
 
 const hasBank = (d: Distributor) => !!(d.bankName && d.accountNumber && d.accountName);
 
-/** What a distributor (or HQ) can sell into a given area: prices, stock and delivery fee. */
+/** HQ's pickup address is the flagship store's (site settings) unless set on HQ's record. */
+const hqAddress = () => [site.street, site.area, "Abuja"].filter(Boolean).join(", ") || null;
+
+/** What one store (or HQ) can sell into a given area: prices, stock, delivery fee and pickup. */
 async function buildOffer(d: Distributor, zone: DeliveryZone | null): Promise<Offer> {
   const [variants, stock, prices, fee] = await Promise.all([
     db.variant.findMany({ include: { product: true } }),
@@ -18,18 +22,24 @@ async function buildOffer(d: Distributor, zone: DeliveryZone | null): Promise<Of
   const stockBy = new Map(stock.map((s) => [s.variantId, Math.max(s.onHand - s.held, 0)]));
   const priceBy = new Map(prices.map((p) => [p.variantId, p]));
 
-  const zoneFee: OfferFee | null = d.isHq
-    ? zone && { baseFeeKobo: zone.baseFeeKobo, perKgFeeKobo: zone.perKgFeeKobo, minOrderKg: zone.minOrderKg, minOrderKobo: zone.minOrderKobo, etaHours: zone.etaHours, terms: zone.terms }
-    : fee && { baseFeeKobo: fee.baseFeeKobo, perKgFeeKobo: fee.perKgFeeKobo, minOrderKg: fee.minOrderKg, minOrderKobo: fee.minOrderKobo, etaHours: fee.etaHours, terms: fee.terms };
-  // Pickup is free at HQ's flagship store only.
-  const pickupFee: OfferFee = { baseFeeKobo: 0, perKgFeeKobo: 0, minOrderKg: null, minOrderKobo: null, etaHours: zone?.etaHours ?? null, terms: zone?.terms ?? null };
+  // HQ delivers to every active area at HQ's own fees; other stores to the areas they've set a fee for.
+  const zoneFee: OfferFee | null = !zone || !zone.active || zone.kind === "PICKUP"
+    ? null
+    : d.isHq
+      ? { baseFeeKobo: zone.baseFeeKobo, perKgFeeKobo: zone.perKgFeeKobo, minOrderKg: zone.minOrderKg, minOrderKobo: zone.minOrderKobo, etaHours: zone.etaHours, terms: zone.terms }
+      : fee && { baseFeeKobo: fee.baseFeeKobo, perKgFeeKobo: fee.perKgFeeKobo, minOrderKg: fee.minOrderKg, minOrderKobo: fee.minOrderKobo, etaHours: fee.etaHours, terms: fee.terms };
 
   return {
     distributorId: d.id,
+    slug: d.slug,
     name: d.isHq ? "Naija Sweet Rice HQ" : d.name,
     isHq: d.isHq,
     ready: d.status === "ACTIVE" && hasBank(d),
-    fee: zone?.kind === "PICKUP" ? (d.isHq ? pickupFee : null) : zoneFee,
+    address: d.address ?? (d.isHq ? hqAddress() : null),
+    hours: d.hours ?? (d.isHq ? site.hoursLabel : null),
+    pickup: d.pickupEnabled && !!(d.address ?? (d.isHq ? hqAddress() : null)),
+    joinsHqPromotions: d.isHq || d.joinsHqPromotions,
+    fee: zoneFee,
     variants: variants.map((v) => {
       const p = priceBy.get(v.id);
       // Distributor prices only count if they sit inside HQ's current range.
@@ -50,21 +60,28 @@ export async function getHq(): Promise<Distributor> {
   return db.distributor.findUniqueOrThrow({ where: { id: HQ_ID } });
 }
 
-/** The area's own distributor offer (if any) and HQ's offer for the same area. */
-export async function offersForZone(zoneId: string | null) {
-  const zone = zoneId ? await db.deliveryZone.findUnique({ where: { id: zoneId }, include: { distributor: true } }) : null;
-  const hq = await getHq();
-  const ownerD = zone?.distributor && !zone.distributor.isHq ? zone.distributor : null;
-  const [owner, hqOffer] = await Promise.all([ownerD ? buildOffer(ownerD, zone) : null, buildOffer(hq, zone)]);
-  return { zone, owner, hq: hqOffer };
+/**
+ * Every approved store a customer in this area can buy from: HQ (if it delivers
+ * there) and each distributor that has set a delivery fee for the area.
+ * Sorted for the chosen size; see sortStores.
+ */
+export async function storesForZone(zoneId: string | null, variantId?: string | null): Promise<{ zone: DeliveryZone | null; stores: Offer[] }> {
+  const zone = zoneId ? await db.deliveryZone.findUnique({ where: { id: zoneId } }) : null;
+  if (!zone || !zone.active) return { zone, stores: [] };
+  const ds = await db.distributor.findMany({
+    where: { status: "ACTIVE", OR: [{ isHq: true }, { zoneFees: { some: { zoneId: zone.id } } }] },
+  });
+  const offers = await Promise.all(ds.map((d) => buildOffer(d, zone)));
+  return { zone, stores: sortStores(offers.filter((o) => o.ready && o.fee), variantId) };
 }
 
+/** One store's offer for an area (fee is null if it doesn't deliver there). */
 export async function offerFor(distributorId: string, zoneId: string | null) {
   const [d, zone] = await Promise.all([
-    db.distributor.findUniqueOrThrow({ where: { id: distributorId } }),
+    db.distributor.findUnique({ where: { id: distributorId } }),
     zoneId ? db.deliveryZone.findUnique({ where: { id: zoneId } }) : null,
   ]);
-  return buildOffer(d, zone);
+  return { zone, offer: d ? await buildOffer(d, zone) : null };
 }
 
 /** Current HQ per-bag fee for each bag size (latest rate in force). */

@@ -23,7 +23,7 @@ async function Sales() {
 
   return (
     <>
-      <PartnerNav current="sales" name={distributor.name} isOwner={member.role === "OWNER"} />
+      <PartnerNav current="sales" name={distributor.name} status={distributor.status} isOwner={member.role === "OWNER"} />
       <h1 className="font-display text-2xl font-bold">Shop sales</h1>
       <p className="mt-1 text-sm text-muted">Record bags sold over the counter so your stock stays right.</p>
       <section className="mt-4 card p-5">

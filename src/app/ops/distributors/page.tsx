@@ -15,9 +15,9 @@ export default function DistributorsPage() {
 async function Distributors() {
   await requireOps();
   const list = await db.distributor.findMany({
-    orderBy: [{ isHq: "desc" }, { name: "asc" }],
+    orderBy: [{ isHq: "desc" }, { status: "asc" }, { name: "asc" }],
     include: {
-      zones: { select: { name: true } },
+      zoneFees: { include: { zone: { select: { name: true, sortOrder: true } } } },
       stock: { include: { variant: { select: { sizeKg: true } } } },
       _count: { select: { members: true } },
       orders: { where: { status: "PENDING_PAYMENT", customerMarkedPaidAt: { not: null } }, select: { id: true } },
@@ -40,7 +40,7 @@ async function Distributors() {
           {list.map((d) => {
             const missing = [
               !(d.bankName && d.accountNumber) && "bank details",
-              !d.isHq && d.zones.length === 0 && "areas",
+              !d.isHq && d.zoneFees.length === 0 && "areas",
               !d.isHq && d._count.members === 0 && "a login",
             ].filter(Boolean);
             return (
@@ -51,12 +51,12 @@ async function Distributors() {
                       <p className="font-bold text-lg">{d.name} {d.isHq && <span className="ml-1 rounded-full bg-brand px-2 py-0.5 text-xs text-white">HQ</span>}</p>
                       <p className="text-sm text-muted">{[d.address, d.phone && formatNgPhone(d.phone)].filter(Boolean).join(" · ") || "No contact details yet"}</p>
                     </div>
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${d.status === "ACTIVE" ? "bg-success/15 text-brand-strong" : "bg-promo-soft text-danger"}`}>
-                      {d.status === "ACTIVE" ? "Active" : "Suspended"}
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${d.status === "ACTIVE" ? "bg-success/15 text-brand-strong" : d.status === "PENDING" ? "bg-cta/30 text-brand-strong" : "bg-promo-soft text-danger"}`}>
+                      {{ ACTIVE: "Active", PENDING: "Waiting for approval", SUSPENDED: "Suspended", REJECTED: "Not approved" }[d.status]}
                     </span>
                   </div>
                   <p className="mt-2 text-sm">
-                    <span className="text-muted">Areas:</span> {d.isHq ? "all (fallback)" : d.zones.map((z) => z.name).join(", ") || "none yet"}
+                    <span className="text-muted">Areas:</span> {d.isHq ? "all open areas" : [...d.zoneFees].sort((a, b) => a.zone.sortOrder - b.zone.sortOrder).map((f) => f.zone.name).join(", ") || "none yet"}
                   </p>
                   <p className="mt-1 text-sm">
                     <span className="text-muted">Stock:</span>{" "}
