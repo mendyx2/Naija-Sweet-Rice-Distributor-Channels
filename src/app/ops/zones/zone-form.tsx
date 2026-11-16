@@ -5,12 +5,12 @@ import { koboToNairaInput } from "@/lib/money";
 import { updateZones } from "../actions";
 
 type Zone = {
-  id: string; name: string; kind: "PICKUP" | "ABUJA" | "NEARBY_TOWN"; baseFeeKobo: number; perKgFeeKobo: number;
+  id: string; name: string; kind: "PICKUP" | "ABUJA" | "NEARBY_TOWN" | "AREA"; baseFeeKobo: number; perKgFeeKobo: number;
   minOrderKg: number | null; minOrderKobo: number | null; terms: string | null; active: boolean;
 };
 
 const input = "w-24 rounded-lg border border-border bg-surface px-2 py-1.5 text-right";
-const KIND = { PICKUP: "Pickup", ABUJA: "Abuja", NEARBY_TOWN: "Nearby town" };
+const KIND = { PICKUP: "Pickup", ABUJA: "Abuja", NEARBY_TOWN: "Nearby town", AREA: "Store area (HQ doesn't deliver)" };
 
 export function ZoneForm({ zones }: { zones: Zone[] }) {
   const [state, action, pending] = useActionState(updateZones, null);

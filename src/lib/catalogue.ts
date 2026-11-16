@@ -86,3 +86,27 @@ export async function getActivePromotions() {
     take: 12,
   });
 }
+
+/**
+ * The areas customers can shop in, anywhere in Nigeria: HQ's own areas, plus
+ * every area where an approved store delivers or has its shop (with pickup).
+ * Areas without a store are left out, so a state shows only where you can buy.
+ */
+export async function getShoppingAreas() {
+  "use cache";
+  cacheLife("max");
+  cacheTag(TAGS.zones);
+  const live = { status: "ACTIVE" as const };
+  return db.deliveryZone.findMany({
+    where: {
+      active: true,
+      OR: [
+        { kind: { in: ["ABUJA", "NEARBY_TOWN"] } },
+        { distributorFees: { some: { distributor: live } } },
+        { storesHere: { some: { ...live, pickupEnabled: true } } },
+      ],
+    },
+    orderBy: [{ state: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
+    select: { id: true, slug: true, name: true, kind: true, state: true },
+  });
+}

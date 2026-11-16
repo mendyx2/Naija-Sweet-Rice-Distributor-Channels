@@ -23,7 +23,11 @@ export default defineConfig({
     actionTimeout: 20_000,
     navigationTimeout: 45_000,
   },
-  projects: [{ name: "mobile", use: { ...devices["Pixel 7"] } }],
+  projects: [
+    // Compiles every page once before the tests, so the dev server doesn't reload pages mid-test.
+    { name: "warm-up", testMatch: /warm-up\.setup\.ts/, use: { ...devices["Pixel 7"] } },
+    { name: "mobile", use: { ...devices["Pixel 7"] }, dependencies: ["warm-up"] },
+  ],
   webServer: {
     command: `npx next dev -p ${PORT}`,
     url: `http://localhost:${PORT}/api/health`,
@@ -38,7 +42,7 @@ export default defineConfig({
       TELEGRAM_WEBHOOK_SECRET: "e2e-telegram-secret",
       E2E_NO_RATE_LIMIT: "1",
       // No SMS/Telegram/email keys: development mode shows login codes on screen and logs messages.
-            TELEGRAM_BOT_TOKEN: "",
+      TELEGRAM_BOT_TOKEN: "",
       RESEND_API_KEY: "",
       NEXT_PUBLIC_GA_ID: "",
       NEXT_PUBLIC_META_PIXEL_ID: "",

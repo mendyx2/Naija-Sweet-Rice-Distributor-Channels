@@ -26,6 +26,9 @@ const ABUJA_AREAS = [
 /** Nearby towns: delivery subject to a minimum order (MOQ). */
 const NEARBY_TOWNS = ["Suleja", "Madalla", "Zuba", "Mararaba", "Nyanya", "Karu", "Masaka", "Kuje", "Bwari"];
 
+/** Nearby towns outside the FCT. */
+const TOWN_STATE: Record<string, string> = { Suleja: "Niger", Madalla: "Niger", Mararaba: "Nasarawa", Karu: "Nasarawa", Masaka: "Nasarawa" };
+
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
 async function main() {
@@ -86,10 +89,10 @@ async function main() {
 
   let order = 0;
   const zones: { name: string; kind: ZoneKind; baseFeeKobo: number; perKgFeeKobo: number;
-    minOrderKg?: number; etaHours: number; terms?: string }[] = [
+    minOrderKg?: number; etaHours: number; terms?: string; state?: string }[] = [
     ...ABUJA_AREAS.map((name) => ({ name, kind: "ABUJA" as const, baseFeeKobo: 2_000_00, perKgFeeKobo: 30_00, etaHours: 24 })),
     ...NEARBY_TOWNS.map((name) => ({
-      name, kind: "NEARBY_TOWN" as const, baseFeeKobo: 4_000_00, perKgFeeKobo: 40_00, minOrderKg: 50, etaHours: 48,
+      name, kind: "NEARBY_TOWN" as const, state: TOWN_STATE[name] ?? "FCT", baseFeeKobo: 4_000_00, perKgFeeKobo: 40_00, minOrderKg: 50, etaHours: 48,
       terms: "Minimum order of 50kg for delivery to this town.",
     })),
   ];

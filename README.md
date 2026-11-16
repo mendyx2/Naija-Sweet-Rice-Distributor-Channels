@@ -20,7 +20,8 @@ npm run db:seed           # bag sizes + delivery zones (prices start empty)
 npm run dev               # http://localhost:3000
 ```
 
-It works as a marketplace of authorised stores. Distributors open their own store at **/partner/join**, and HQ approves it.
+It works as a marketplace of authorised stores across Nigeria. Distributors in any state open their own store at
+**/partner/join**, and HQ approves it. Customers find stores by state and area at **/stores**.
 Customers choose their area, then one of the stores serving it (each with its own prices, stock, delivery fee and
 pickup address), and pay that store by **bank transfer**. HQ records the stock it delivers to each store. Everyone signs in
 with their **email address** and a 6-digit code sent by email (Resend). Customer messages also go by email, and staff

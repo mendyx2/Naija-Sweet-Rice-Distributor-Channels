@@ -191,12 +191,15 @@ enum ZoneKind {
   PICKUP // collect at the flagship store
   ABUJA // core Abuja districts, no minimum order
   NEARBY_TOWN // Suleja, Mararaba, Nyanya, ...: minimum order applies
+  AREA // an area added by a store anywhere in Nigeria (HQ doesn't deliver there)
 }
 
 model DeliveryZone {
   id              String               @id @default(cuid())
   slug            String               @unique
   name            String
+  /// Nigerian state, e.g. "FCT", "Lagos", "Niger". Customers filter stores by state.
+  state           String               @default("FCT")
   kind            ZoneKind
   baseFeeKobo     Int                  @default(0)
   perKgFeeKobo    Int                  @default(0)
@@ -213,6 +216,8 @@ model DeliveryZone {
   orders          Order[]
   distributorFees DistributorZoneFee[]
   storesHere      Distributor[]        @relation("StoreHomeZone")
+
+  @@index([state])
 }
 
 // ─── Orders ─────────────────────────────────────────────────────────────────

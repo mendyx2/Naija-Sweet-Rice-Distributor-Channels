@@ -38,7 +38,10 @@ async function Distributor({ params }: Pick<PageProps<"/ops/distributors/[id]">,
   if (!d) notFound();
   const telegramCount = await db.telegramChat.count({ where: { user: { distributorMember: { distributorId: id } } } });
   const [zones, pending, movements] = await Promise.all([
-    db.deliveryZone.findMany({ where: { kind: { not: "PICKUP" } }, orderBy: { sortOrder: "asc" }, include: { distributorFees: { include: { distributor: { select: { id: true, name: true } } } } } }),
+    db.deliveryZone.findMany({
+      // The store's own state (Abuja for HQ-set-up stores), plus anywhere it already delivers.
+      where: { kind: { not: "PICKUP" }, OR: [{ state: (d.homeZoneId ? (await db.deliveryZone.findUnique({ where: { id: d.homeZoneId } }))?.state : null) ?? "FCT" }, { distributorFees: { some: { distributorId: d.id } } }] },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }], include: { distributorFees: { include: { distributor: { select: { id: true, name: true } } } } } }),
     db.stockMovement.findMany({ where: { distributorId: id, status: "PENDING_APPROVAL" }, include: { variant: true }, orderBy: { createdAt: "asc" } }),
     db.stockMovement.findMany({ where: { distributorId: id }, include: { variant: true }, orderBy: { createdAt: "desc" }, take: 25 }),
   ]);

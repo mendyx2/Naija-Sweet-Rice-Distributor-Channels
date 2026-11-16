@@ -7,6 +7,7 @@ import { requirePartner } from "@/lib/partner-auth";
 import { changeOrderStatus, confirmTransferReceived, reportTransferNotReceived } from "@/lib/order-actions";
 import { moveStock } from "@/lib/stock";
 import { markRestocksReceived } from "@/lib/restock";
+import { findOrCreateArea } from "@/lib/areas";
 import { nairaToKobo, formatNaira } from "@/lib/money";
 import { withinBand } from "@/lib/network-rules";
 import { alertHq } from "@/lib/notify";
@@ -184,7 +185,10 @@ export async function savePrices(_prev: FormState, formData: FormData): Promise<
 
 export async function saveFees(_prev: FormState, formData: FormData): Promise<FormState> {
   const { distributor, actor } = await requirePartner({ ownerOnly: true });
-  const zones = await db.deliveryZone.findMany({ where: { active: true, kind: { not: "PICKUP" } } });
+  const home = distributor.homeZoneId ? await db.deliveryZone.findUnique({ where: { id: distributor.homeZoneId } }) : null;
+  const zones = await db.deliveryZone.findMany({
+    where: { active: true, kind: { not: "PICKUP" }, OR: [{ state: home?.state ?? "FCT" }, { distributorFees: { some: { distributorId: distributor.id } } }] },
+  });
   const num = (k: string) => { const v = nairaToKobo(String(formData.get(k) ?? "")); return v; };
   const int = (k: string) => { const s = String(formData.get(k) ?? "").trim(); return s === "" ? null : /^\d+$/.test(s) ? Number(s) : NaN; };
   const errors: string[] = [];
@@ -210,6 +214,18 @@ export async function saveFees(_prev: FormState, formData: FormData): Promise<Fo
       create: { distributorId: distributor.id, zoneId: z.id, ...data, minOrderKobo: null },
       update: data,
     });
+  }
+  // A new area typed in: created in the store's state, at the fee of the first ticked area.
+  const typed = String(formData.get("newArea") ?? "").trim();
+  if (typed) {
+    const area = await findOrCreateArea(typed, home?.state ?? "FCT");
+    if (!area) errors.push("Please check the new area's name.");
+    else {
+      const first = zones.find((z) => formData.get(`on:${z.id}`));
+      const fee = { baseFeeKobo: first ? (num(`base:${first.id}`) ?? 0) : 0, perKgFeeKobo: first ? (num(`perKg:${first.id}`) ?? 0) : 0 };
+      await db.distributorZoneFee.upsert({ where: { distributorId_zoneId: { distributorId: distributor.id, zoneId: area.id } }, create: { distributorId: distributor.id, zoneId: area.id, ...fee }, update: {} });
+      areas++;
+    }
   }
   await db.auditLog.create({ data: { actor, action: "partner.fees", entity: "Distributor", entityId: distributor.id } });
   updateTag(TAGS.zones);

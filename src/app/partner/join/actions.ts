@@ -12,6 +12,8 @@ import { alertHq } from "@/lib/staff-alerts";
 import { notifyPerson } from "@/lib/notify";
 import { site } from "@/lib/site";
 import { TAGS } from "@/lib/catalogue";
+import { findOrCreateArea } from "@/lib/areas";
+import { isNigerianState } from "@/lib/states";
 
 export type JoinState = { ok: boolean; message: string } | null;
 
@@ -19,7 +21,10 @@ const schema = z.object({
   name: z.string().trim().min(3, "Enter your business name.").max(80),
   cacNumber: z.string().trim().max(20).optional(),
   address: z.string().trim().min(8, "Enter your shop address (customers who pick up go here).").max(200),
+  state: z.string().max(30),
   homeZoneId: z.string().min(1, "Choose the area your shop is in.").max(40),
+  newHomeArea: z.string().max(80).optional(),
+  newAreas: z.string().max(400).optional(),
   phone: z.string().trim().max(30),
   hours: z.string().trim().max(80).optional(),
   bankName: z.string().trim().min(2, "Enter the bank name.").max(60),
@@ -56,12 +61,21 @@ export async function openStore(_prev: JoinState, formData: FormData): Promise<J
     return { ok: false, message: "Enter the delivery fee in naira, e.g. 1500." };
   }
   const pickup = !!formData.get("pickup");
+  if (!isNigerianState(f.state)) return { ok: false, message: "Choose your state." };
+  const typed = (f.newAreas ?? "").split(",").map((x) => x.trim()).filter(Boolean).slice(0, 20);
   const zoneIds = [...new Set(formData.getAll("zone").map(String))].slice(0, 100);
-  const zones = await db.deliveryZone.findMany({ where: { id: { in: zoneIds }, active: true, kind: { not: "PICKUP" } } });
-  if (!zones.length && !pickup) return { ok: false, message: "Choose at least one area you deliver to, or offer pickup." };
+  const ticked = await db.deliveryZone.findMany({ where: { id: { in: zoneIds }, state: f.state, active: true, kind: { not: "PICKUP" } } });
+  if (!ticked.length && !typed.length && !pickup) return { ok: false, message: "Choose at least one area you deliver to, or offer pickup." };
 
-  const home = await db.deliveryZone.findUnique({ where: { id: f.homeZoneId } });
-  if (!home || !home.active || home.kind === "PICKUP") return { ok: false, message: "Choose the area your shop is in." };
+  // The shop's area: one of the state's areas, or a new one the distributor typed.
+  const home = f.homeZoneId === "new"
+    ? await findOrCreateArea(f.newHomeArea ?? "", f.state)
+    : await db.deliveryZone.findFirst({ where: { id: f.homeZoneId, state: f.state, active: true, kind: { not: "PICKUP" } } });
+  if (!home) return { ok: false, message: f.homeZoneId === "new" ? "Enter the name of your shop's area." : "Choose the area your shop is in." };
+  // Areas typed in are created in the same state. A store that delivers also delivers in its own area.
+  const created = (await Promise.all(typed.map((n) => findOrCreateArea(n, f.state)))).filter((z): z is NonNullable<typeof z> => !!z);
+  const delivery = [...ticked, ...created];
+  const zones = [...new Map([...delivery, ...(delivery.length ? [home] : [])].map((z) => [z.id, z])).values()];
 
   let slug = slugify(f.name) || "store";
   if (await db.distributor.findUnique({ where: { slug } })) slug = `${slug}-${Date.now().toString(36).slice(-4)}`;

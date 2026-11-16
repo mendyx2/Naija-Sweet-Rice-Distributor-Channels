@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { site } from "@/lib/site";
 import { getZones } from "@/lib/catalogue";
 import { formatNaira } from "@/lib/money";
 
@@ -20,7 +21,11 @@ export default async function DeliveryPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
-      <h1 className="font-display text-3xl font-bold">Delivery areas &amp; fees</h1>
+      <h1 className="font-display text-3xl font-bold">HQ delivery areas &amp; fees</h1>
+      <p className="text-muted mt-2">
+        These are {site.name} HQ&apos;s own delivery areas around Abuja. Stores across Nigeria set their own areas and fees:{" "}
+        <Link href="/stores" className="text-brand underline">find a store near you</Link>.
+      </p>
       <p className="text-muted mt-2">
         Delivery fee = a base fee for your area + a small charge per kg. Your exact fee is shown at checkout.
         Free samples are free, but the delivery fee still applies (or pick up in store for free).

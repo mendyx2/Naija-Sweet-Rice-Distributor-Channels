@@ -15,10 +15,16 @@ const input = "field mt-0 w-28 py-1.5";
 
 async function Settings() {
   const { distributor, member } = await requirePartner({ ownerOnly: true, next: "/partner/settings" });
+  const home = distributor.homeZoneId ? await db.deliveryZone.findUnique({ where: { id: distributor.homeZoneId } }) : null;
   const [variants, prices, zones, codes] = await Promise.all([
     db.variant.findMany({ orderBy: { sizeKg: "desc" } }),
     db.distributorPrice.findMany({ where: { distributorId: distributor.id } }),
-    db.deliveryZone.findMany({ where: { active: true, kind: { not: "PICKUP" } }, orderBy: { sortOrder: "asc" }, include: { distributorFees: { where: { distributorId: distributor.id } } } }),
+    db.deliveryZone.findMany({
+      // Areas in the store's state, plus any it already covers elsewhere.
+      where: { active: true, kind: { not: "PICKUP" }, OR: [{ state: home?.state ?? "FCT" }, { distributorFees: { some: { distributorId: distributor.id } } }] },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      include: { distributorFees: { where: { distributorId: distributor.id } } },
+    }),
     db.coupon.findMany({ where: { distributorId: distributor.id }, orderBy: { createdAt: "desc" }, take: 30 }),
   ]);
   const now = new Date();
@@ -97,7 +103,11 @@ async function Settings() {
                 </tbody>
               </table>
             </div>
-          </ActionForm>
+                      <label className="block max-w-sm"><span className="font-semibold">Add an area in {home?.state === "FCT" || !home ? "Abuja (FCT)" : home.state} that isn&apos;t listed</span>
+              <input name="newArea" maxLength={60} placeholder="Area name" className="field" />
+              <span className="text-xs text-muted">It&apos;s added with the base and per-kg fee of your first ticked area.</span>
+            </label>
+</ActionForm>
         )}
       </section>
 

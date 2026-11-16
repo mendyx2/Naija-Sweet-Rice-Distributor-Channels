@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getCurrentUser } from "@/lib/auth";
-import { getZones } from "@/lib/catalogue";
+import { getShoppingAreas } from "@/lib/catalogue";
 import { formatNgPhone } from "@/lib/phone";
 import { OtpForm } from "../login/otp-form";
 import { CheckoutForm } from "./checkout-form";
@@ -25,7 +25,7 @@ async function Checkout({ searchParams }: Pick<PageProps<"/checkout">, "searchPa
   const coupon = typeof sp.coupon === "string" ? sp.coupon : "";
   const storeId = typeof sp.store === "string" ? sp.store.slice(0, 40) : "";
   const fulfillment = sp.fulfillment === "PICKUP" ? "PICKUP" : "DELIVERY";
-  const [user, zones] = await Promise.all([getCurrentUser(), getZones()]);
+  const [user, zones] = await Promise.all([getCurrentUser(), getShoppingAreas()]);
 
   if (!user) {
     const next = `/checkout?${new URLSearchParams({ zone: zoneId, store: storeId, fulfillment, ...(coupon ? { coupon } : {}) })}`;
@@ -45,7 +45,7 @@ async function Checkout({ searchParams }: Pick<PageProps<"/checkout">, "searchPa
 
   return (
     <CheckoutForm
-      zones={zones.map((z) => ({ id: z.id, name: z.name, kind: z.kind }))}
+      zones={zones.map((z) => ({ id: z.id, name: z.name, kind: z.kind, state: z.state }))}
       initialZoneId={zones.some((z) => z.id === zoneId) ? zoneId : ""}
       initialCoupon={coupon}
       storeId={storeId}
