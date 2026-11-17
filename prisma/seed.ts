@@ -64,17 +64,12 @@ async function main() {
     }
   }
 
-  // Distributor network: HQ (the flagship, fallback for every area) and the first Abuja distributor.
-  // Bank details and areas are entered by HQ staff in /ops/distributors.
+  // HQ's own store (the flagship). Distributors aren't seeded: they open their own stores at
+  // /partner/join and HQ approves them. HQ's bank details are entered in /ops/distributors.
   await db.distributor.upsert({
     where: { id: "hq" },
     update: {},
     create: { id: "hq", name: "Naija Sweet Rice HQ", slug: "hq", isHq: true },
-  });
-  await db.distributor.upsert({
-    where: { slug: "gova-max-ltd" },
-    update: {},
-    create: { name: "Gova Max Ltd", slug: "gova-max-ltd", address: "Kaura International Market, Abuja FCT" },
   });
   const variants = await db.variant.findMany({ where: { productId: product.id } });
   for (const d of await db.distributor.findMany()) {
@@ -104,13 +99,12 @@ async function main() {
     });
   }
 
-  // Each store has one shop; customers in its area can always pick up there.
+  // HQ's flagship shop is in Wuse II; customers there can always pick up.
   const home = async (slug: string, zoneSlug: string) => {
     const z = await db.deliveryZone.findUnique({ where: { slug: zoneSlug } });
     if (z) await db.distributor.updateMany({ where: { slug, homeZoneId: null }, data: { homeZoneId: z.id } });
   };
   await home("hq", "wuse-ii");
-  await home("gova-max-ltd", "kaura");
 
   console.log(`Seeded ${SIZES.length} bag sizes and ${zones.length} delivery zones.`);
 }

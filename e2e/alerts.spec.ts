@@ -13,7 +13,8 @@ test("a distributor connects Telegram for staff alerts, and the webhook rejects 
 
   const forged = await request.post("/api/telegram/webhook", { data: start(code, 5551), headers: { "X-Telegram-Bot-Api-Secret-Token": "wrong" } });
   expect(forged.status()).toBe(401);
-  await request.post("/api/telegram/webhook", { data: start(`${code.slice(0, -1)}0`, 5551), headers: { "X-Telegram-Bot-Api-Secret-Token": SECRET } });
+  const tampered = code.slice(0, -1) + (code.endsWith("0") ? "1" : "0"); // always differs from the real code
+  await request.post("/api/telegram/webhook", { data: start(tampered, 5551), headers: { "X-Telegram-Bot-Api-Secret-Token": SECRET } });
   expect(await db.telegramChat.count({ where: { chatId: "5551" } })).toBe(0);
 
   const ok = await request.post("/api/telegram/webhook", { data: start(code, 5551), headers: { "X-Telegram-Bot-Api-Secret-Token": SECRET } });

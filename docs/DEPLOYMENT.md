@@ -34,7 +34,7 @@ Neon may offer both a "pooled" and a "direct" connection string. The direct one 
 2. Before the first deploy, open **Settings → Environment Variables** and add the settings in §4.
 3. Deploy. Every deploy automatically:
    - updates the database structure;
-   - adds anything missing to the starting data (bag sizes, delivery areas, HQ, Gova Max Ltd); it never overwrites prices, stock or anything staff entered;
+   - adds anything missing to the starting data (bag sizes, delivery areas, HQ's own store); it never overwrites prices, stock or anything staff entered;
    - builds the site.
 4. **Domains:** add your domain and follow Vercel's DNS instructions. Then set `NEXT_PUBLIC_SITE_URL` to `https://yourdomain` and redeploy.
 
@@ -87,7 +87,7 @@ Go to `https://yourdomain/ops` and sign in with an email address from `HQ_OWNER_
    - **HQ fee per bag** (charged on distributor online sales).
 4. **HQ delivery fees:** confirm the fee per area (the starting values are placeholders).
 5. **Distributors.** New distributors open their own store at `https://yourdomain/partner/join` (link in the site footer). They enter their business, bank account, areas and delivery fee. You get a Telegram/email alert. Open the store in **Distributors**, check it and press **Approve store** (owners only), then record the opening stock they bought from you with **Dispatch from HQ**. They confirm receipt and the store is live.
-   For **Gova Max Ltd** (already set up by HQ): check its bank account, areas and owner's email address (they get an email invitation), then send opening stock.
+   No distributor is pre-loaded, Gova Max Ltd included: send them the link to `/partner/join`.
 6. **Alerts:** on the Distributors page, connect HQ's Telegram (§7). Ask each distributor to connect theirs under **Alerts** in the partner portal.
 7. **Promotions**, if you want one at launch.
 

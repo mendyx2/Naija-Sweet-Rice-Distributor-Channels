@@ -44,14 +44,17 @@ export default async function globalSetup() {
   // Stores opened by earlier test runs stay out of the way.
   await db.distributor.updateMany({ where: { name: { startsWith: "E2E " } }, data: { status: "REJECTED" } });
 
-  // Gova Max Ltd: Gwarinpa + Kubwa, own prices and fees, known stock, an owner login
-  const gova = await db.distributor.update({
+  // A test distributor, "Gova Max Ltd" (the real one signs itself up; the site doesn't pre-load
+  // distributors): Gwarinpa + Kubwa, own prices and fees, known stock, an owner login.
+  const govaData = {
+    status: "ACTIVE" as const, phone: "+2348120004444", bankName: "GTBank", accountNumber: "0234567891", accountName: "Gova Max Ltd",
+    address: "Kaura International Market, Abuja FCT", pickupEnabled: true, joinsHqPromotions: false,
+    homeZone: { connect: { slug: "kaura" } },
+  };
+  const gova = await db.distributor.upsert({
     where: { slug: "gova-max-ltd" },
-    data: {
-      status: "ACTIVE", phone: "+2348120004444", bankName: "GTBank", accountNumber: "0234567891", accountName: "Gova Max Ltd",
-      address: "Kaura International Market, Abuja FCT", pickupEnabled: true, joinsHqPromotions: false,
-      homeZone: { connect: { slug: "kaura" } },
-    },
+    create: { name: "Gova Max Ltd", slug: "gova-max-ltd", approvedAt: new Date(), approvedBy: "e2e", ...govaData },
+    update: govaData,
   });
   const govaAreas = await db.deliveryZone.findMany({ where: { name: { in: ["Gwarinpa", "Kubwa"] } } });
   await db.distributorZoneFee.deleteMany({ where: { distributorId: gova.id, zoneId: { notIn: govaAreas.map((z) => z.id) } } });
@@ -64,7 +67,8 @@ export default async function globalSetup() {
     await db.distributorPrice.upsert({ where: { distributorId_variantId: { distributorId: gova.id, variantId: v[kg].id } }, create: { distributorId: gova.id, variantId: v[kg].id, ...data }, update: data });
   }
   for (const [kg, qty] of [[50, 10], [25, 4], [5, 0], [1, 5]] as const) {
-    await db.distributorStock.update({ where: { distributorId_variantId: { distributorId: gova.id, variantId: v[kg].id } }, data: { onHand: qty, held: 0, inTransit: 0 } });
+    const stock = { onHand: qty, held: 0, inTransit: 0 };
+    await db.distributorStock.upsert({ where: { distributorId_variantId: { distributorId: gova.id, variantId: v[kg].id } }, create: { distributorId: gova.id, variantId: v[kg].id, ...stock }, update: stock });
   }
   // Gova's owner signs in with email; an older test database may have them saved by phone only.
   const existing = await db.user.findFirst({ where: { OR: [{ email: "musa@govamax.test" }, { phone: "+2348120003333" }] } });
