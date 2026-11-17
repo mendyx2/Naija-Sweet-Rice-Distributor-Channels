@@ -12,7 +12,7 @@ export default async function globalSetup() {
   if (!/e2e|test/i.test(new URL(E2E_DB).pathname)) {
     throw new Error(`Refusing to use ${E2E_DB}: the end-to-end database name must contain "e2e" or "test".`);
   }
-  const env = { ...process.env, DATABASE_URL: E2E_DB };
+  const env = { ...process.env, DATABASE_URL: E2E_DB, DATABASE_URL_UNPOOLED: E2E_DB };
   execSync("npx prisma migrate deploy", { env, stdio: "inherit" });
   execSync("npx tsx prisma/seed.ts", { env, stdio: "inherit" });
 

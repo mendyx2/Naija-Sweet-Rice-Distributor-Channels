@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { checkEnv } from "@/lib/env-check";
 
 const full = {
-  DATABASE_URL: "postgres://x", NEXT_PUBLIC_SITE_URL: "https://naijasweetrice.ng", SESSION_SECRET: "x".repeat(40),
+  DATABASE_URL: "postgres://x", DATABASE_URL_UNPOOLED: "postgres://y", NEXT_PUBLIC_SITE_URL: "https://naijasweetrice.ng", SESSION_SECRET: "x".repeat(40),
   HQ_OWNER_EMAILS: "owner@naijasweetrice.ng", CRON_SECRET: "c",
   TELEGRAM_BOT_TOKEN: "t", TELEGRAM_WEBHOOK_SECRET: "s", RESEND_API_KEY: "r", EMAIL_FROM: "a@b.ng",
   GOOGLE_SHEETS_ID: "g", GOOGLE_SERVICE_ACCOUNT_EMAIL: "e", GOOGLE_SERVICE_ACCOUNT_KEY: "k",

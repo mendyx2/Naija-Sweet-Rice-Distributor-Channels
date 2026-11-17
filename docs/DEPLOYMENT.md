@@ -9,7 +9,7 @@ This guide takes the store from this code to a live website, then through the fi
 | What | Used for | Cost |
 |---|---|---|
 | **GitHub** (you have this) | Holds the code | Free |
-| **Vercel** | Runs the website | Pro plan recommended (needed for the 10-minute housekeeping job; see §6) |
+| **Vercel** | Runs the website | Free Hobby plan is fine for testing; for launch either Pro or a free external scheduler (see §6) |
 | **Neon** (or any PostgreSQL host) | The database | Free tier to start |
 | **Domain name** (e.g. `naijasweetrice.ng`) | The web address | Yearly fee from a registrar |
 | **Telegram** + a bot from @BotFather | Free staff alerts | Free |
@@ -20,11 +20,13 @@ This guide takes the store from this code to a live website, then through the fi
 
 ## 2. Database (Neon)
 
-1. Create a Neon project in a region close to Nigeria (e.g. Europe).
-2. Copy the connection string it shows for **Prisma**. It starts with `postgresql://`.
-3. Keep it for the `DATABASE_URL` setting below.
+The app needs two connection strings to the same database:
+- `DATABASE_URL`: used by the running site. Neon's **pooled** connection (host contains `-pooler`) is best.
+- `DATABASE_URL_UNPOOLED`: the **direct** connection, used to update the database on each deploy.
 
-Neon may offer both a "pooled" and a "direct" connection string. The direct one is simplest at launch volumes. If you want the pooled one, ask a developer to follow Neon's Prisma guide.
+**Easiest:** in your Vercel project, open **Storage → Create Database → Neon**, choose the free plan and a Europe region (Frankfurt), and connect it to the project. Vercel adds both settings for you, with exactly these names.
+
+**Or by hand:** create a Neon project (Europe/Frankfurt). Under **Connect**, copy the string with **Connection pooling** on into `DATABASE_URL`, and the one with it off into `DATABASE_URL_UNPOOLED`. Without a pooler, put the same string in both.
 
 ---
 
@@ -50,7 +52,8 @@ Never put these in chat, email or the code. Enter them only in Vercel's settings
 
 | Setting | What to put |
 |---|---|
-| `DATABASE_URL` | Neon connection string |
+| `DATABASE_URL` | Neon pooled connection string (set automatically by Vercel's Neon integration) |
+| `DATABASE_URL_UNPOOLED` | Neon direct connection string (set automatically by Vercel's Neon integration) |
 | `NEXT_PUBLIC_SITE_URL` | `https://yourdomain` (no trailing slash) |
 | `SESSION_SECRET` | 48+ random characters (a developer can run `openssl rand -base64 48`) |
 | `HQ_OWNER_EMAILS` | Your email address(es), comma-separated, e.g. `you@naijasweetrice.ng`. These always have full HQ access |
@@ -93,7 +96,7 @@ Go to `https://yourdomain/ops` and sign in with an email address from `HQ_OWNER_
 
 ---
 
-## 6. Housekeeping job (every 10 minutes)
+## 6. Housekeeping job
 
 The job at `/api/cron/release-reservations` does several things:
 - cancels transfers not paid within 3 hours and sends 2-hour reminders;
@@ -102,11 +105,18 @@ The job at `/api/cron/release-reservations` does several things:
 - sends sample follow-up coupons;
 - fills the Google sheet.
 
-- **Vercel Pro:** `vercel.json` already schedules it every 10 minutes, and Vercel sends `CRON_SECRET` automatically.
-- **Vercel Hobby (free):** Hobby only allows infrequent cron jobs, and the deploy may refuse the 10-minute schedule. Check Vercel's current cron limits. If so, delete `vercel.json` and use a free external scheduler such as cron-job.org:
+`vercel.json` runs it **once a day** (06:00 Lagos time), which Vercel's free Hobby plan accepts. That's enough for testing. For a real launch it should run every 10–30 minutes, so unpaid orders are released on time. Either:
+- **Vercel Pro:** change the schedule in `vercel.json` to `*/10 * * * *` and redeploy. Vercel sends `CRON_SECRET` automatically. Or
+- **Stay on Hobby (free):** keep the daily schedule and add a free external scheduler such as cron-job.org:
   - URL: `https://yourdomain/api/cron/release-reservations`
-  - every 10 minutes
+  - every 30 minutes (every 10 also works, but keeps a free Neon database awake most of the time)
   - add the header `Authorization: Bearer <your CRON_SECRET>`
+
+While testing you can also run it by hand from a terminal (it replies with what it did):
+
+```bash
+curl -H "Authorization: Bearer YOUR_CRON_SECRET" https://yourdomain/api/cron/release-reservations
+```
 
 ---
 

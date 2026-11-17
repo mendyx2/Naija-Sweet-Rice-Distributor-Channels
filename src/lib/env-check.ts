@@ -9,7 +9,8 @@ export function checkEnv(env: Record<string, string | undefined> = process.env):
   const need = (k: string, why: string) => { if (!env[k]) missing.push(`${k}: ${why}`); };
   const want = (keys: string[], what: string) => { if (keys.some((k) => !env[k])) warnings.push(`${what} is off (set ${keys.join(", ")})`); };
 
-  need("DATABASE_URL", "the database connection");
+  need("DATABASE_URL", "the database connection (pooled is fine)");
+  need("DATABASE_URL_UNPOOLED", "the direct (unpooled) database connection, used to update the database on each deploy");
   need("NEXT_PUBLIC_SITE_URL", "the public web address, e.g. https://naijasweetrice.ng");
   if (!env.SESSION_SECRET || env.SESSION_SECRET.length < 32) missing.push("SESSION_SECRET: 32+ random characters for signing logins");
   need("HQ_OWNER_EMAILS", "email address(es) of the HQ owner(s), so someone can sign in to /ops");
