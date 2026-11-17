@@ -9,7 +9,7 @@ This guide takes the store from this code to a live website, then through the fi
 | What | Used for | Cost |
 |---|---|---|
 | **GitHub** (you have this) | Holds the code | Free |
-| **Vercel** | Runs the website | Pro plan recommended (needed for the 10-minute housekeeping job; see §6) |
+| **Vercel** | Runs the website | Free Hobby plan is fine for testing; for launch either Pro or a free external scheduler (see §6) |
 | **Neon** (or any PostgreSQL host) | The database | Free tier to start |
 | **Domain name** (e.g. `naijasweetrice.ng`) | The web address | Yearly fee from a registrar |
 | **Telegram** + a bot from @BotFather | Free staff alerts | Free |
@@ -93,7 +93,7 @@ Go to `https://yourdomain/ops` and sign in with an email address from `HQ_OWNER_
 
 ---
 
-## 6. Housekeeping job (every 10 minutes)
+## 6. Housekeeping job
 
 The job at `/api/cron/release-reservations` does several things:
 - cancels transfers not paid within 3 hours and sends 2-hour reminders;
@@ -102,11 +102,18 @@ The job at `/api/cron/release-reservations` does several things:
 - sends sample follow-up coupons;
 - fills the Google sheet.
 
-- **Vercel Pro:** `vercel.json` already schedules it every 10 minutes, and Vercel sends `CRON_SECRET` automatically.
-- **Vercel Hobby (free):** Hobby only allows infrequent cron jobs, and the deploy may refuse the 10-minute schedule. Check Vercel's current cron limits. If so, delete `vercel.json` and use a free external scheduler such as cron-job.org:
+`vercel.json` runs it **once a day** (06:00 Lagos time), which Vercel's free Hobby plan accepts. That's enough for testing. For a real launch it should run every 10–30 minutes, so unpaid orders are released on time. Either:
+- **Vercel Pro:** change the schedule in `vercel.json` to `*/10 * * * *` and redeploy. Vercel sends `CRON_SECRET` automatically. Or
+- **Stay on Hobby (free):** keep the daily schedule and add a free external scheduler such as cron-job.org:
   - URL: `https://yourdomain/api/cron/release-reservations`
-  - every 10 minutes
+  - every 30 minutes (every 10 also works, but keeps a free Neon database awake most of the time)
   - add the header `Authorization: Bearer <your CRON_SECRET>`
+
+While testing you can also run it by hand from a terminal (it replies with what it did):
+
+```bash
+curl -H "Authorization: Bearer YOUR_CRON_SECRET" https://yourdomain/api/cron/release-reservations
+```
 
 ---
 
