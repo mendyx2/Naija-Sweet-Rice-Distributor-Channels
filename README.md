@@ -13,7 +13,7 @@ nearby towns, purchase points → discount coupons, bag-replacement returns.
 Requirements: Node 22+, PostgreSQL 16.
 
 ```bash
-cp .env.example .env      # then fill in DATABASE_URL, SESSION_SECRET, HQ_OWNER_EMAILS
+cp .env.example .env      # then fill in DATABASE_URL (and DATABASE_URL_UNPOOLED), SESSION_SECRET, HQ_OWNER_EMAILS
 npm install
 npm run db:migrate        # create tables
 npm run db:seed           # bag sizes + delivery zones (prices start empty)

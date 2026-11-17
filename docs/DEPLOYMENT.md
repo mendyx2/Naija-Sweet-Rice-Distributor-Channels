@@ -20,11 +20,13 @@ This guide takes the store from this code to a live website, then through the fi
 
 ## 2. Database (Neon)
 
-1. Create a Neon project in a region close to Nigeria (e.g. Europe).
-2. Copy the connection string it shows for **Prisma**. It starts with `postgresql://`.
-3. Keep it for the `DATABASE_URL` setting below.
+The app needs two connection strings to the same database:
+- `DATABASE_URL`: used by the running site. Neon's **pooled** connection (host contains `-pooler`) is best.
+- `DATABASE_URL_UNPOOLED`: the **direct** connection, used to update the database on each deploy.
 
-Neon may offer both a "pooled" and a "direct" connection string. The direct one is simplest at launch volumes. If you want the pooled one, ask a developer to follow Neon's Prisma guide.
+**Easiest:** in your Vercel project, open **Storage → Create Database → Neon**, choose the free plan and a Europe region (Frankfurt), and connect it to the project. Vercel adds both settings for you, with exactly these names.
+
+**Or by hand:** create a Neon project (Europe/Frankfurt). Under **Connect**, copy the string with **Connection pooling** on into `DATABASE_URL`, and the one with it off into `DATABASE_URL_UNPOOLED`. Without a pooler, put the same string in both.
 
 ---
 
@@ -50,7 +52,8 @@ Never put these in chat, email or the code. Enter them only in Vercel's settings
 
 | Setting | What to put |
 |---|---|
-| `DATABASE_URL` | Neon connection string |
+| `DATABASE_URL` | Neon pooled connection string (set automatically by Vercel's Neon integration) |
+| `DATABASE_URL_UNPOOLED` | Neon direct connection string (set automatically by Vercel's Neon integration) |
 | `NEXT_PUBLIC_SITE_URL` | `https://yourdomain` (no trailing slash) |
 | `SESSION_SECRET` | 48+ random characters (a developer can run `openssl rand -base64 48`) |
 | `HQ_OWNER_EMAILS` | Your email address(es), comma-separated, e.g. `you@naijasweetrice.ng`. These always have full HQ access |

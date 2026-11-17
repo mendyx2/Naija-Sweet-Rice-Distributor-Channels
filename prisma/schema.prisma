@@ -8,7 +8,10 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // The running site uses DATABASE_URL, which may be pooled (e.g. Neon's pooled connection on Vercel).
+  // Migrations need a direct connection: DATABASE_URL_UNPOOLED (the same value when there is no pooler).
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 // ─── People ─────────────────────────────────────────────────────────────────

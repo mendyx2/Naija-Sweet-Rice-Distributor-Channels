@@ -35,6 +35,7 @@ export default defineConfig({
     reuseExistingServer: false,
     env: {
       DATABASE_URL: E2E_DB,
+      DATABASE_URL_UNPOOLED: E2E_DB,
       NEXT_PUBLIC_SITE_URL: `http://localhost:${PORT}`,
       SESSION_SECRET: "e2e-secret-e2e-secret-e2e-secret-e2e-secret",
       HQ_OWNER_EMAILS: "owner@naijasweetrice.test",
