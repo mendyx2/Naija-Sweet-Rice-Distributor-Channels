@@ -1,17 +1,20 @@
 import { expect, test } from "@playwright/test";
 import { db, zoneId } from "./db";
-import { HQ_OWNER, acceptDialogs, chooseArea, loginWithCode, newEmail, newPhone, signInAs } from "./helpers";
+import { HQ_OWNER, acceptDialogs, addFromStore, chooseArea, loginWithCode, newEmail, newPhone, signInAs } from "./helpers";
 
 test("order from an HQ area, sign in with an email code, pay by transfer, HQ confirms", async ({ page, browser }) => {
   await page.context().addInitScript(() => localStorage.setItem("nsr_consent", "denied"));
   await page.goto("/");
   await chooseArea(page, await zoneId("Garki"));
-  await page.goto("/p/naija-sweet-rice?size=50");
-  // Only HQ delivers to Garki, so it's chosen automatically.
-  await expect(page.getByRole("radio", { name: /Naija Sweet Rice HQ/ })).toHaveAttribute("aria-checked", "true");
-  await expect(page.getByText(/Sold by Naija Sweet Rice HQ/)).toBeVisible();
-  await expect(page.getByText("₦85,000").first()).toBeVisible();
-  await page.getByRole("button", { name: "Add to cart" }).click();
+  // Find a store for Garki: only HQ delivers there.
+  await page.goto(`/stores?area=${await zoneId("Garki")}`);
+  const picked = page.getByRole("region", { name: /1 store for Garki/ });
+  await picked.getByRole("button", { name: /Naija Sweet Rice HQ/ }).click();
+  await page.waitForURL("**/stores/hq");
+  const bag = page.getByRole("listitem", { name: "50kg bag" });
+  await expect(bag).toContainText("₦85,000");
+  await expect(page.getByText(/\d+ (bags? )?(left|in stock)/i)).toHaveCount(0); // buyers never see stock levels
+  await bag.getByRole("button", { name: "Add to cart" }).click();
   await expect(page.getByRole("link", { name: /Cart, 1 item/ })).toBeVisible();
 
   await page.goto("/cart");
@@ -55,8 +58,7 @@ test("nearby towns enforce the minimum order", async ({ page }) => {
   await page.context().addInitScript(() => localStorage.setItem("nsr_consent", "denied"));
   await page.goto("/");
   await chooseArea(page, await zoneId("Suleja"));
-  await page.goto("/p/naija-sweet-rice?size=25");
-  await page.getByRole("button", { name: "Add to cart" }).click();
+  await addFromStore(page, "hq", 25);
   await page.goto("/cart");
   await expect(page.locator("main [role=alert]").filter({ hasText: "minimum" })).toContainText("50kg");
   await expect(page.getByRole("button", { name: "Checkout" })).toBeDisabled();

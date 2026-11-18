@@ -1,5 +1,7 @@
 "use server";
 
+import { sendPasswordLink } from "@/lib/password-auth";
+
 import { z } from "zod";
 import { refresh, updateTag } from "next/cache";
 import { db } from "@/lib/db";
@@ -8,14 +10,17 @@ import { changeOrderStatus, confirmTransferReceived, reportTransferNotReceived }
 import { moveStock } from "@/lib/stock";
 import { markRestocksReceived } from "@/lib/restock";
 import { findOrCreateArea } from "@/lib/areas";
+import { checkStockLevels } from "@/lib/stock-alerts";
 import { nairaToKobo, formatNaira } from "@/lib/money";
 import { withinBand } from "@/lib/network-rules";
 import { alertHq } from "@/lib/notify";
 import { notifyDistributor } from "@/lib/staff-alerts";
-import { makeReferralCode } from "@/lib/auth";
-import { notifyPerson } from "@/lib/notify";
-import { maskEmail, normalizeEmail } from "@/lib/email-address";
+import { makeReferralCode, signOutOtherSessions } from "@/lib/auth";
+import { hashPassword, passwordProblem, verifyPassword } from "@/lib/password";
+import { rateLimit } from "@/lib/rate-limit";
+import { sendEmail } from "@/lib/email";
 import { site } from "@/lib/site";
+import { maskEmail, normalizeEmail } from "@/lib/email-address";
 import { normalizeNgPhone as normalizePhone } from "@/lib/phone";
 import { TAGS } from "@/lib/catalogue";
 
@@ -86,6 +91,7 @@ export async function receiveStock(_prev: FormState, formData: FormData): Promis
     }
   });
   if (shortages.length) await alertHq(`${distributor.name} received a delivery SHORT by ${shortages.join(", ")}${reference ? ` (ref ${reference})` : ""}.`);
+  await checkStockLevels([distributor.id]);
   refresh();
   return {
     ok: true,
@@ -153,6 +159,7 @@ export async function recordWalkInSale(_prev: FormState, formData: FormData): Pr
     }
     throw e;
   }
+  await checkStockLevels([distributor.id]);
   refresh();
   return { ok: true, message: `Recorded: ${lines.map((l) => `${l.qty} × ${l.sizeKg}kg`).join(", ")} for ${formatNaira(total)}.` };
 }
@@ -314,7 +321,7 @@ export async function addStaff(_prev: FormState, formData: FormData): Promise<Fo
   }
   await db.distributorMember.create({ data: { userId: user.id, distributorId: distributor.id, role: "STAFF" } });
   await db.auditLog.create({ data: { actor, action: "partner.staff_add", entity: "Distributor", entityId: distributor.id, after: { userId: user.id } } });
-  await notifyPerson(email, `${distributor.name} added you to their team`, `${distributor.name} added you to their team on ${site.name}. Sign in with this email address at ${site.url}/partner`);
+  await sendPasswordLink(user.id, "PARTNER", user.passwordHash ? "reset" : "invite");
   refresh();
   return { ok: true, message: `Added ${maskEmail(email)}. They've been emailed a sign-in link.` };
 }
@@ -398,4 +405,33 @@ export async function stopDistributorCode(formData: FormData) {
   const n = await db.coupon.updateMany({ where: { id, distributorId: distributor.id }, data: { expiresAt: new Date() } });
   if (n.count) await db.auditLog.create({ data: { actor, action: "partner.coupon_stop", entity: "Coupon", entityId: id } });
   refresh();
+}
+
+// ─── Profile (every member) ─────────────────────────────────────────────────
+
+export async function saveMyName(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { user, actor } = await requirePartner();
+  const name = String(formData.get("name") ?? "").trim();
+  if (name.length < 2 || name.length > 80) return { ok: false, message: "Enter your full name." };
+  await db.user.update({ where: { id: user.id }, data: { name } });
+  await db.auditLog.create({ data: { actor, action: "partner.profile_name", entity: "User", entityId: user.id } });
+  refresh();
+  return { ok: true, message: "Name saved." };
+}
+
+/** Change password with the current one. Signs out the member's other distributor sessions. */
+export async function changeMyPassword(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { user, actor } = await requirePartner();
+  if (!(await rateLimit(`pw-change:${user.id}`, 5, 15 * 60_000)).ok) return { ok: false, message: "Too many attempts. Please wait 15 minutes." };
+  const current = String(formData.get("current") ?? "");
+  const next = String(formData.get("password") ?? "");
+  if (!(await verifyPassword(current, user.passwordHash))) return { ok: false, message: "Your current password isn't right." };
+  const problem = passwordProblem(next);
+  if (problem) return { ok: false, message: problem };
+  if (next !== String(formData.get("confirm") ?? "")) return { ok: false, message: "The two new passwords don't match." };
+  await db.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(next) } });
+  await signOutOtherSessions(user.id, "PARTNER");
+  await db.auditLog.create({ data: { actor, action: "partner.password_changed", entity: "User", entityId: user.id } });
+  if (user.email) await sendEmail(user.email, "Your distributor password was changed", `The password for ${user.email} on the distributor portal was just changed. If this wasn't you, reset it now: ${site.url}/partner/password`).catch(() => false);
+  return { ok: true, message: "Password changed. Other devices have been signed out." };
 }

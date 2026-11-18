@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { safeEqual } from "@/lib/crypto";
 import { syncStockSheet } from "@/lib/stock-sheet";
+import { checkStockLevels } from "@/lib/stock-alerts";
 import { confirmDuePoints, expireOldPoints, paymentFollowUps, releaseExpiredReservations, sendSampleFollowUps } from "@/lib/orders";
 
 /** Housekeeping: frees stock held by unpaid orders, confirms points past the return window,
@@ -15,7 +16,8 @@ export async function GET(req: NextRequest) {
   const pointsConfirmed = await confirmDuePoints();
   const pointsExpired = await expireOldPoints();
   const sampleFollowUps = await sendSampleFollowUps();
+  const stockAlerts = await checkStockLevels();
   // The sheet is a copy: a Google outage must not stop the rest of the housekeeping.
   const sheet = await syncStockSheet().catch((e) => ({ error: String(e).slice(0, 200) }));
-  return NextResponse.json({ ok: true, released, ...payments, pointsConfirmed, pointsExpired, sampleFollowUps, sheet });
+  return NextResponse.json({ ok: true, released, ...payments, pointsConfirmed, pointsExpired, sampleFollowUps, stockAlerts, sheet });
 }

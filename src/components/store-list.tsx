@@ -32,7 +32,7 @@ export function StoreList({
         {stores.map((s) => {
           const size = variantId ? s.sizes.find((v) => v.variantId === variantId) : null;
           const active = s.id === selectedId;
-          const soldOut = size ? size.priceKobo == null || size.available === 0 : false;
+          const soldOut = size ? !size.available : false;
           return (
             <button
               key={s.id}
@@ -51,7 +51,7 @@ export function StoreList({
                   <span className="shrink-0 text-right">
                     {size.priceKobo != null && !hidePrice ? <span className="block font-bold tabular-nums text-foreground">{formatNaira(size.priceKobo)}</span> : null}
                     <span className={`block text-xs ${soldOut ? "text-danger" : "text-success"}`}>
-                      {size.priceKobo == null ? "Not sold here" : size.available === 0 ? "Sold out" : size.available <= 10 ? `${size.available} left` : "In stock"}
+                      {size.priceKobo == null ? "Not sold here" : size.available ? "Available" : "Unavailable"}
                     </span>
                   </span>
                 )}

@@ -49,7 +49,13 @@ const nextConfig: NextConfig = {
     },
   },
   async redirects() {
-    return [{ source: "/p/niger-sweet-rice", destination: "/p/naija-sweet-rice", permanent: true }];
+    return [
+      // There is no general shop: buyers pick a store, and each store's page is its shop.
+      { source: "/shop", destination: "/stores", permanent: false },
+      { source: "/p/:slug", destination: "/stores", permanent: false },
+      // Older store links and printed QR codes
+      { source: "/distributors/:slug", destination: "/stores/:slug", permanent: true },
+    ];
   },
   async headers() {
     return [

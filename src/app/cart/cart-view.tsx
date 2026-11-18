@@ -36,6 +36,7 @@ export function CartView({ zones }: { zones: ZoneOption[] }) {
     });
   }, [zoneId]);
   const areaStores = stores && stores.zoneId === zoneId ? stores.list : null;
+  const hqHere = !!areaStores?.some((x) => x.isHq);
   const store = areaStores?.find((x) => x.id === storeId) ?? null;
   useEffect(() => {
     if (areaStores && !store && areaStores.length === 1) setStore(areaStores[0].id);
@@ -72,7 +73,7 @@ export function CartView({ zones }: { zones: ZoneOption[] }) {
       <div className="mt-8 card p-10 text-center">
         <p className="text-lg font-semibold">Your cart is empty</p>
         <p className="text-muted mt-1">Pick a bag size to get started.</p>
-        <Link href="/shop" className="btn-cta mt-6">Shop rice</Link>
+        <Link href="/stores" className="btn-cta mt-6">Find a store</Link>
       </div>
     );
   }
@@ -90,7 +91,7 @@ export function CartView({ zones }: { zones: ZoneOption[] }) {
             <div className="flex-1 min-w-0">
               <div className="flex justify-between gap-3">
                 <div>
-                  <Link href={`/p/${l.productSlug}?size=${l.sizeKg}`} className="font-semibold hover:underline">
+                  <Link href={data?.fulfiller ? `/stores/${data.fulfiller.slug}` : "/stores"} className="font-semibold hover:underline">
                     {l.productName}, {l.sizeKg}kg
                   </Link>
                   <p className="text-sm text-muted">{l.unitPriceKobo != null ? `${formatNaira(l.unitPriceKobo)} each` : "Not available"}</p>
@@ -103,13 +104,13 @@ export function CartView({ zones }: { zones: ZoneOption[] }) {
                     onClick={() => cart.setQty(l.variantId, l.qty - 1)}><MinusIcon /></button>
                   <span className="w-8 text-center text-sm font-semibold tabular-nums">{l.qty}</span>
                   <button type="button" className="h-9 w-9 flex items-center justify-center rounded-r-full hover:bg-brand-soft disabled:opacity-40" aria-label="Increase"
-                    disabled={l.qty >= Math.min(l.available, 100)} onClick={() => cart.setQty(l.variantId, l.qty + 1)}><PlusIcon /></button>
+                    disabled={l.qty >= 100} onClick={() => cart.setQty(l.variantId, l.qty + 1)}><PlusIcon /></button>
                 </div>
                 <button type="button" onClick={() => cart.remove(l.variantId)} className="text-sm text-muted underline hover:text-danger">Remove</button>
               </div>
               {!l.forSale && <p className="mt-2 text-sm text-danger">This size is no longer available. Please remove it.</p>}
-              {l.forSale && l.qty > l.available && (
-                <p className="mt-2 text-sm text-danger">{l.available === 0 ? "Out of stock." : `Only ${l.available} left.`}</p>
+              {l.forSale && !l.enough && (
+                <p className="mt-2 text-sm text-danger">Not available in this quantity at {data?.fulfiller?.name ?? "this store"}. Reduce it{hqHere && !data?.fulfiller?.isHq ? ", or order from Naija Sweet Rice HQ below" : ""}.</p>
               )}
             </div>
           </li>
@@ -175,6 +176,12 @@ export function CartView({ zones }: { zones: ZoneOption[] }) {
         )}
 
         <OrderSummary quote={data?.quote ?? null} subtotalKobo={subtotal} zoneChosen={!!zoneId && !!store} isPickup={fulfillment === "PICKUP"} />
+
+        {store && !store.isHq && hqHere && data?.lines.some((l) => !l.forSale || !l.enough) && (
+          <button type="button" onClick={() => setStore("hq")} className="btn-outline w-full">
+            Order from Naija Sweet Rice HQ instead
+          </button>
+        )}
 
         {zoneId && blocking.length > 0 && (
           <ul role="alert" className="rounded-xl bg-promo-soft p-3 text-sm space-y-1">

@@ -50,7 +50,7 @@ export default async function PromotionsPage() {
       </div>
 
       {promos.length === 0 && (
-        <p className="mt-10 text-muted">No other offers are running right now. <Link className="underline" href="/shop">Browse all bag sizes</Link>.</p>
+        <p className="mt-10 text-muted">No other offers are running right now. <Link className="underline" href="/stores">Browse all bag sizes</Link>.</p>
       )}
     </div>
   );

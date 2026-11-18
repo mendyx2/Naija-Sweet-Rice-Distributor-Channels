@@ -12,6 +12,7 @@ import { StatusPill } from "@/components/order-status";
 import { BagThumb } from "@/components/bag-thumb";
 import { OrderEffects, TransferPanel } from "./client";
 import { canClaimReplacement } from "@/lib/returns";
+import { ShareWhatsApp } from "@/components/share-whatsapp";
 
 const CLAIM_STATUS: Record<string, string> = {
   SUBMITTED: "received, we'll review it shortly",
@@ -61,8 +62,12 @@ async function Order({ params }: Pick<PageProps<"/orders/[number]">, "params">) 
           <p className="text-cta font-semibold">Thank you{order.customerName ? `, ${order.customerName.split(" ")[0]}` : ""}!</p>
           <h1 className="font-display text-3xl sm:text-4xl font-bold mt-1">{order.totalKobo > 0 ? "Payment confirmed" : "Your order is confirmed"}</h1>
           <p className="mt-2 text-white/85">
-            {order.contactEmail ? <>We&apos;ve emailed {order.contactEmail}. </> : null}We&apos;ll email you again when it&apos;s {isPickup ? "ready for pickup" : "on its way"}, and this page always shows the latest.
+            {order.contactEmail ? <>Your receipt has been emailed to {order.contactEmail}. </> : null}We&apos;ll email you again when it&apos;s {isPickup ? "ready for pickup" : "on its way"}, and this page always shows the latest.
           </p>
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <ShareWhatsApp text={`I just got my ${site.name}. Get yours from a store near you:`} url={`${site.url}/r/${user.referralCode}`} label="Tell friends on WhatsApp" />
+            <span className="text-sm text-white/80">You earn points when they buy.</span>
+          </div>
         </div>
       )}
 

@@ -61,7 +61,7 @@ async function SampleContent() {
         <p className="mt-2 text-muted">Enjoy it! When you&apos;re ready for more, every bag size is in the shop.</p>
         <div className="mt-6 flex flex-wrap gap-3">
           {order && <Link href={`/orders/${order.number}`} className="btn-primary">View sample order</Link>}
-          <Link href="/shop" className="btn-outline">Shop bags</Link>
+          <Link href="/stores" className="btn-outline">Find a store</Link>
         </div>
       </>
     );

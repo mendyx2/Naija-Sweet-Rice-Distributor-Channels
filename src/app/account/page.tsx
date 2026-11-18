@@ -9,11 +9,11 @@ import { pointsBalance } from "@/lib/points-balance";
 import { DEFAULT_REWARD_RULES, rewardProgress } from "@/lib/rewards";
 import { availableCoupons } from "@/lib/redeem";
 import { site } from "@/lib/site";
+import { ShareWhatsApp } from "@/components/share-whatsapp";
 import { StatusPill } from "@/components/order-status";
 import { signOut } from "../login/actions";
 import { applyAsAffiliate } from "./actions";
 import { affiliateStats } from "@/lib/affiliate-stats";
-import { getProducts } from "@/lib/catalogue";
 import { DeleteAccountForm, ProfileForm, RedeemForm } from "./forms";
 import { CopyButton } from "./copy-button";
 
@@ -43,7 +43,7 @@ async function Account() {
   ]);
   const progress = rewardProgress(points.confirmed);
   const affiliate = await db.affiliateProfile.findUnique({ where: { userId: user.id } });
-  const [affStats, products] = affiliate?.status === "APPROVED" ? await Promise.all([affiliateStats(user.id), getProducts()]) : [null, []];
+  const affStats = affiliate?.status === "APPROVED" ? await affiliateStats(user.id) : null;
   const refLink = `${site.url}/r/${user.referralCode}`;
 
   return (
@@ -117,7 +117,7 @@ async function Account() {
         <h2 className="font-display text-2xl font-bold">Your orders</h2>
         {orders.length === 0 ? (
           <div className="mt-4 card p-6 text-muted">
-            No orders yet. <Link href="/shop" className="text-brand font-semibold underline">Start shopping</Link>
+            No orders yet. <Link href="/stores" className="text-brand font-semibold underline">Find a store</Link>
           </div>
         ) : (
           <ul className="mt-4 card divide-y divide-border">
@@ -175,15 +175,11 @@ async function Account() {
                 <span className="font-mono break-all">{site.url}/a/{affiliate.code}</span>
                 <CopyButton text={`${site.url}/a/${affiliate.code}`} label="Copy" />
               </li>
-              {products.flatMap((p) => p.variants.filter((v) => v.retailPriceKobo != null).map((v) => {
-                const url = `${site.url}/a/${affiliate.code}?p=${p.slug}&size=${v.sizeKg}`;
-                return (
-                  <li key={v.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-background p-3">
-                    <span><strong>{v.sizeKg}kg bag</strong> <span className="font-mono text-muted break-all">{url}</span></span>
-                    <CopyButton text={url} label="Copy" />
-                  </li>
-                );
-              }))}
+              <li className="rounded-xl bg-background p-3 text-muted">
+                To send people straight to one store, add <span className="font-mono">?store=</span> and the store&apos;s name from its address,
+                e.g. <span className="font-mono break-all">{site.url}/a/{affiliate.code}?store=hq</span>
+              </li>
+              <li><ShareWhatsApp text={`Get ${site.name} from a store near you:`} url={`${site.url}/a/${affiliate.code}`} /></li>
             </ul>
           </>
         )}

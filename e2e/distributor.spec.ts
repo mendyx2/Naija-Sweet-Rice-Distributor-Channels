@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { db, stockOf, zoneId } from "./db";
-import { acceptDialogs, chooseArea, GOVA_OWNER, HQ_OWNER, newEmail, signInAs, statusText } from "./helpers";
+import { acceptDialogs, addFromStore, chooseArea, GOVA_OWNER, HQ_OWNER, newEmail, signInAs, statusText } from "./helpers";
 
 test.describe.configure({ mode: "serial" });
 
@@ -11,18 +11,19 @@ test("a Gwarinpa customer compares stores, buys from Gova Max, pays Gova and get
   await signInAs(page.context(), newEmail(), { name: "Tunde Bakare" });
   await page.goto("/");
   await chooseArea(page, await zoneId("Gwarinpa"));
-  await page.goto("/p/naija-sweet-rice?size=50");
-
-  // Both stores serving Gwarinpa are listed with their own price; the cheaper in-stock one first.
-  const list = page.getByRole("radiogroup", { name: "Stores in Gwarinpa" });
-  await expect(list.getByRole("radio")).toHaveCount(2);
-  await expect(list.getByRole("radio").first()).toContainText("Gova Max Ltd");
-  await expect(store(page, /Gova Max Ltd/)).toContainText("₦84,000");
-  await expect(store(page, /Naija Sweet Rice HQ/)).toContainText("₦85,000");
-  await expect(page.getByRole("button", { name: "Add to cart" })).toHaveCount(0); // choose a store first
-  await store(page, /Gova Max Ltd/).click();
-  await expect(page.getByText(/Sold by Gova Max Ltd/)).toBeVisible();
-  await page.getByRole("button", { name: "Add to cart" }).click();
+  // Find a store: both stores serving Gwarinpa are listed; each store page has its own prices.
+  await page.goto(`/stores?area=${await zoneId("Gwarinpa")}`);
+  const picked = page.getByRole("region", { name: /2 stores for Gwarinpa/ });
+  await expect(picked.getByRole("button", { name: /Naija Sweet Rice HQ/ })).toBeVisible();
+  await page.goto("/stores/hq");
+  await expect(page.getByRole("listitem", { name: "50kg bag" })).toContainText("₦85,000");
+  await page.goto(`/stores?area=${await zoneId("Gwarinpa")}`);
+  await picked.getByRole("button", { name: /Gova Max Ltd/ }).click();
+  await page.waitForURL("**/stores/gova-max-ltd");
+  const bag = page.getByRole("listitem", { name: "50kg bag" });
+  await expect(bag).toContainText("₦84,000");
+  await bag.getByRole("button", { name: "Add to cart" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Added 1 × 50kg from Gova Max Ltd" })).toBeVisible();
 
   await page.goto("/cart");
   await expect(store(page, /Gova Max Ltd/)).toHaveAttribute("aria-checked", "true");
@@ -66,16 +67,15 @@ test("when the chosen store is short, the customer switches to another store in 
   await signInAs(page.context(), newEmail());
   await page.goto("/");
   await chooseArea(page, await zoneId("Gwarinpa"));
-  await page.goto("/p/naija-sweet-rice?size=25");
-  await store(page, /Naija Sweet Rice HQ/).click();
-  for (let i = 0; i < 5; i++) await page.getByRole("button", { name: "Increase quantity" }).click(); // 6 bags
-  await page.getByRole("button", { name: "Add to cart" }).click();
+  await addFromStore(page, "gova-max-ltd", 25, 6); // Gova has only 4
 
   await page.goto("/cart");
-  await store(page, /Gova Max Ltd/).click(); // Gova has only 4
-  await expect(page.locator("main [role=alert]").filter({ hasText: /only 4|4 left/i })).toBeVisible();
+  await expect(store(page, /Gova Max Ltd/)).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByText("Not available in this quantity at Gova Max Ltd", { exact: false })).toBeVisible();
+  await expect(page.locator("main").getByText(/only 4|4 left|4 in stock/i)).toHaveCount(0); // no stock numbers for buyers
   await expect(page.getByRole("button", { name: "Checkout" })).toBeDisabled();
-  await store(page, /Naija Sweet Rice HQ/).click();
+  await page.getByRole("button", { name: "Order from Naija Sweet Rice HQ instead" }).click();
+  await expect(store(page, /Naija Sweet Rice HQ/)).toHaveAttribute("aria-checked", "true");
   await expect(page.getByRole("link", { name: "Checkout" })).toBeVisible();
 });
 
@@ -95,9 +95,7 @@ test("coupons: a store's own codes work only there; HQ coupons only at stores th
   await signInAs(page.context(), newEmail(), { name: "Ada Customer" });
   await page.goto("/");
   await chooseArea(page, await zoneId("Gwarinpa"));
-  await page.goto("/p/naija-sweet-rice?size=50");
-  await store(page, /Gova Max Ltd/).click();
-  await page.getByRole("button", { name: "Add to cart" }).click();
+  await addFromStore(page, "gova-max-ltd", 50);
   await page.goto("/cart");
   const apply = async (c: string) => {
     await page.getByPlaceholder("Coupon code").fill(c.toLowerCase());
@@ -128,8 +126,7 @@ test("coupons: a store's own codes work only there; HQ coupons only at stores th
   await gp.getByLabel(/Take part in Naija Sweet Rice promotions/).check();
   await gp.getByRole("button", { name: "Save options" }).click();
   await expect(statusText(gp, /promotions accepted/)).toBeVisible();
-  await page.goto("/p/naija-sweet-rice?size=50");
-  await page.getByRole("button", { name: "Add to cart" }).click();
+  await addFromStore(page, "gova-max-ltd", 50);
   await page.goto("/cart");
   await apply(hqCode);
   await expect(page.getByText(`Coupon ${hqCode} applied`)).toBeVisible();
@@ -147,9 +144,7 @@ test("pickup from Gova's shop: no delivery fee, no address, collected at Kaura m
   await signInAs(page.context(), newEmail(), { name: "Halima Bello" });
   await page.goto("/");
   await chooseArea(page, await zoneId("Kubwa"));
-  await page.goto("/p/naija-sweet-rice?size=50");
-  await store(page, /Gova Max Ltd/).click();
-  await page.getByRole("button", { name: "Add to cart" }).click();
+  await addFromStore(page, "gova-max-ltd", 50);
   await page.goto("/cart");
   await page.getByRole("radio", { name: "Pickup (free)" }).click();
   await expect(page.getByText("Collect from Gova Max Ltd, Kaura International Market")).toBeVisible();
@@ -167,13 +162,14 @@ test("customers in Kaura see Gova's shop for pickup, even though Gova doesn't de
   await signInAs(page.context(), newEmail());
   await page.goto("/");
   await chooseArea(page, await zoneId("Kaura"));
-  await page.goto("/p/naija-sweet-rice?size=50");
-  const gova = store(page, /Gova Max Ltd/);
+  await page.goto(`/stores?area=${await zoneId("Kaura")}`);
+  const gova = page.getByRole("region", { name: /for Kaura/ }).getByRole("button", { name: /Gova Max Ltd/ });
   await expect(gova).toContainText("Kaura International Market, Abuja FCT");
-  await expect(gova).toContainText("No delivery to this area");
+  await expect(gova).toContainText("Shop in this area");
   await expect(gova).toContainText("Free pickup");
   await gova.click();
-  await page.getByRole("button", { name: "Add to cart" }).click();
+  await page.waitForURL("**/stores/gova-max-ltd");
+  await page.getByRole("listitem", { name: "50kg bag" }).getByRole("button", { name: "Add to cart" }).click();
   await page.goto("/cart");
   // Delivery isn't possible from Gova here, so pickup is chosen for the customer.
   await expect(page.getByRole("radio", { name: "Pickup (free)" })).toHaveAttribute("aria-checked", "true");

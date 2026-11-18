@@ -9,11 +9,9 @@ import { rateLimit } from "@/lib/rate-limit";
  */
 export async function GET(req: NextRequest, ctx: RouteContext<"/a/[code]">) {
   const { code } = await ctx.params;
-  const slug = req.nextUrl.searchParams.get("p");
-  const size = req.nextUrl.searchParams.get("size");
-  const dest = slug && /^[a-z0-9-]{1,80}$/.test(slug)
-    ? `/p/${slug}${size && /^\d{1,3}$/.test(size) ? `?size=${size}` : ""}`
-    : "/shop";
+  // Affiliate links open a store if one is named (?store=slug), else the store finder.
+  const store = req.nextUrl.searchParams.get("store");
+  const dest = store && /^[a-z0-9-]{1,80}$/.test(store) ? `/stores/${store}` : "/stores";
   const res = NextResponse.redirect(new URL(dest, req.url));
 
   const normalized = code.toUpperCase();
