@@ -58,10 +58,15 @@ test("a distributor registers with prices and a password; the store stays hidden
   await cp.waitForURL(/\/partner\/login/);
 
   // While waiting, the owner corrects their own shop details and bank account on their profile.
-  await page.goto("/partner/profile");
+  await page.goto("/partner/profile", { waitUntil: "networkidle" });
   const shop = page.locator("section", { has: page.getByRole("heading", { name: "Shop details" }) });
-  await shop.getByLabel("Shop address").fill("Shop 14, Utako Market, Abuja");
-  await shop.getByLabel("Account number").fill("0691234568");
+  // Typing before the page is interactive can be overwritten as it hydrates: retry until the fields hold.
+  await expect(async () => {
+    await shop.getByLabel("Shop address").fill("Shop 14, Utako Market, Abuja");
+    await shop.getByLabel("Account number").fill("0691234568");
+    await expect(shop.getByLabel("Shop address")).toHaveValue("Shop 14, Utako Market, Abuja", { timeout: 1000 });
+    await expect(shop.getByLabel("Account number")).toHaveValue("0691234568", { timeout: 1000 });
+  }).toPass();
   await shop.getByRole("button", { name: "Save shop details" }).click();
   await expect(statusText(page, /Shop details saved/)).toBeVisible();
   expect(await db.distributor.findUniqueOrThrow({ where: { id: store.id } })).toMatchObject({ address: "Shop 14, Utako Market, Abuja", accountNumber: "0691234568" });
