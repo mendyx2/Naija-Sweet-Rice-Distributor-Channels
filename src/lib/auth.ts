@@ -3,7 +3,7 @@ import { cache } from "react";
 import { cookies, headers } from "next/headers";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
-import type { Role, User, SellerProfile } from "@prisma/client";
+import type { Role, SessionKind, User, SellerProfile } from "@prisma/client";
 import { db } from "./db";
 import { randomToken, sha256 } from "./crypto";
 
@@ -12,11 +12,16 @@ const SESSION_DAYS = 30;
 
 export type CurrentUser = User & { sellerProfile: SellerProfile | null };
 
-export async function createSession(userId: string) {
+/**
+ * Starts a session. `kind` is what it may open: a customer (email-code)
+ * session never opens the distributor portal or HQ. HQ sessions last 12 hours.
+ */
+export async function createSession(userId: string, kind: SessionKind = "CUSTOMER") {
   const token = randomToken();
-  const expiresAt = new Date(Date.now() + SESSION_DAYS * 86400_000);
+  const expiresAt = new Date(Date.now() + (kind === "HQ" ? 12 * 3600_000 : SESSION_DAYS * 86400_000));
   const ua = (await headers()).get("user-agent")?.slice(0, 200) ?? null;
-  await db.session.create({ data: { tokenHash: sha256(token), userId, expiresAt, userAgent: ua } });
+  await destroySession(); // one session per browser: signing in elsewhere replaces it
+  await db.session.create({ data: { tokenHash: sha256(token), userId, expiresAt, userAgent: ua, kind } });
   (await cookies()).set(COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -33,8 +38,14 @@ export async function destroySession() {
   jar.delete(COOKIE);
 }
 
-/** The signed-in user, or null. Cached per request. */
-export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
+/** Ends every session of this kind for the user except the one in this browser. */
+export async function signOutOtherSessions(userId: string, kind: SessionKind) {
+  const token = (await cookies()).get(COOKIE)?.value;
+  await db.session.deleteMany({ where: { userId, kind, ...(token ? { NOT: { tokenHash: sha256(token) } } : {}) } });
+}
+
+/** The signed-in user and what kind of sign-in it is, or null. Cached per request. */
+export const getCurrentSession = cache(async (): Promise<{ user: CurrentUser; kind: SessionKind } | null> => {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token || token.length > 100) return null;
   const session = await db.session.findUnique({
@@ -43,8 +54,11 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   });
   await connection(); // expiry depends on the current time: request-time only
   if (!session || session.expiresAt < new Date()) return null;
-  return session.user;
+  return { user: session.user, kind: session.kind };
 });
+
+/** The signed-in user (any kind of sign-in), or null. */
+export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => (await getCurrentSession())?.user ?? null);
 
 export async function requireUser(next = "/account"): Promise<CurrentUser> {
   const user = await getCurrentUser();

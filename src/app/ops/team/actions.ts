@@ -1,13 +1,13 @@
 "use server";
 
+import { sendPasswordLink } from "@/lib/password-auth";
+
 import { refresh } from "next/cache";
 import type { Role } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireOps } from "@/lib/ops-auth";
 import { makeReferralCode } from "@/lib/auth";
 import { maskEmail, normalizeEmail } from "@/lib/email-address";
-import { notifyPerson } from "@/lib/notify";
-import { site } from "@/lib/site";
 
 export type FormState = { ok: boolean; message: string } | null;
 
@@ -25,7 +25,8 @@ export async function addHqMember(_prev: FormState, formData: FormData): Promise
   const roles = [...new Set([...user.roles.filter((r) => r !== "OWNER" && r !== "STAFF"), role])];
   await db.user.update({ where: { id: user.id }, data: { roles, name: user.name ?? name } });
   await db.auditLog.create({ data: { actor, action: "hq.member_add", entity: "User", entityId: user.id, after: { role } } });
-  await notifyPerson(email, "you've been given HQ access", `You've been given ${site.name} HQ access. Sign in with this email address at ${site.url}/ops`);
+  // They choose their own password from an emailed link, then sign in at /ops/login.
+  await sendPasswordLink(user.id, "HQ", user.passwordHash ? "reset" : "invite");
   refresh();
   return { ok: true, message: `${name} (${maskEmail(email)}) added as ${role === "OWNER" ? "an owner" : "staff"}.` };
 }

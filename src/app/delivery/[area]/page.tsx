@@ -97,7 +97,7 @@ async function Area({ params }: Pick<PageProps<"/delivery/[area]">, "params">) {
         <div className="mt-4 rounded-2xl bg-brand-soft p-4 text-sm">
           <p>Authorised stores delivering to {zone.name}, as well as {site.name} HQ:</p>
           <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-            {local.map((d) => <li key={d.id}><Link href={`/distributors/${d.slug}`} className="font-semibold text-brand underline">{d.name}</Link></li>)}
+            {local.map((d) => <li key={d.id}><Link href={`/stores/${d.slug}`} className="font-semibold text-brand underline">{d.name}</Link></li>)}
           </ul>
           <p className="mt-2 text-muted">Each store sets its own prices and delivery fee. Choose your area and a store on the product page to compare them.</p>
         </div>
@@ -118,7 +118,7 @@ async function Area({ params }: Pick<PageProps<"/delivery/[area]">, "params">) {
                   return (
                     <tr key={v.id} className="border-t border-border">
                       <td className="p-3">
-                        <Link href={`/p/${rice.slug}?size=${v.sizeKg}`} className="flex items-center gap-3 font-bold text-brand hover:underline sm:text-foreground">
+                        <Link href="/stores" className="flex items-center gap-3 font-bold text-brand hover:underline sm:text-foreground">
                           <BagImage src={v.imageUrl} className="hidden h-14 w-14 rounded-xl border border-border shrink-0 sm:block" sizes="56px" />
                           {v.sizeKg}kg
                         </Link>
@@ -126,7 +126,7 @@ async function Area({ params }: Pick<PageProps<"/delivery/[area]">, "params">) {
                       <td className="p-3"><Price kobo={v.retailPriceKobo} compareAt={v.compareAtPriceKobo} /></td>
                       <td className="p-3 tabular-nums">{meetsMoq ? formatNaira(fee) : <span className="text-muted">Below minimum</span>}</td>
                       <td className="p-3 font-semibold tabular-nums">{meetsMoq ? formatNaira(v.retailPriceKobo! + fee) : "—"}</td>
-                      <td className="hidden p-3 sm:table-cell"><Link href={`/p/${rice.slug}?size=${v.sizeKg}`} className="font-semibold text-brand underline">Buy</Link></td>
+                      <td className="hidden p-3 sm:table-cell"><Link href="/stores" className="font-semibold text-brand underline">Buy</Link></td>
                     </tr>
                   );
                 })}
@@ -138,7 +138,7 @@ async function Area({ params }: Pick<PageProps<"/delivery/[area]">, "params">) {
       )}
 
       <div className="mt-10 flex flex-wrap gap-3">
-        <Link href="/shop" className="btn-cta">Shop now</Link>
+        <Link href="/stores" className="btn-cta">Find a store</Link>
         <Link href="/samples" className="btn-outline">Try a free 1kg sample</Link>
       </div>
 

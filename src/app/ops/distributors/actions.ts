@@ -1,5 +1,7 @@
 "use server";
 
+import { sendPasswordLink } from "@/lib/password-auth";
+
 import { z } from "zod";
 import { refresh, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
@@ -14,6 +16,7 @@ import { alertHq, notifyDistributor } from "@/lib/staff-alerts";
 import { isTelegramConfigured, registerWebhook } from "@/lib/telegram";
 import { site } from "@/lib/site";
 import { TAGS } from "@/lib/catalogue";
+import { checkStockLevels } from "@/lib/stock-alerts";
 
 export type FormState = { ok: boolean; message: string } | null;
 
@@ -159,7 +162,7 @@ export async function addMember(_prev: FormState, formData: FormData): Promise<F
   await db.distributorMember.upsert({ where: { userId: user.id }, create: { userId: user.id, distributorId: id, role }, update: { role } });
   if (name && !user.name) await db.user.update({ where: { id: user.id }, data: { name } });
   await db.auditLog.create({ data: { actor, action: "distributor.member_add", entity: "Distributor", entityId: id, after: { userId: user.id, role } } });
-  await notifyPerson(email, `you've been added to ${d.name}`, `You've been added to ${d.name} on the ${site.name} partner portal. Sign in with this email address at ${site.url}/partner`);
+  await sendPasswordLink(user.id, "PARTNER", user.passwordHash ? "reset" : "invite");
   refresh();
   return { ok: true, message: `Added ${maskEmail(email)} as ${role.toLowerCase()}. They've been emailed a sign-in link.` };
 }
@@ -197,6 +200,7 @@ export async function sendStock(_prev: FormState, formData: FormData): Promise<F
     if (e instanceof RestockError) return { ok: false, message: e.message };
     throw e;
   }
+  await checkStockLevels(["hq"]);
   await notifyDistributor(id, "Stock on its way", `HQ has dispatched ${lines.map((l) => `${l.qty}×${l.v.sizeKg}kg`).join(", ")}${reference ? ` (ref ${reference})` : ""}. Confirm when received: ${site.url}/partner/stock`);
   updateTag(TAGS.catalogue);
   refresh();
@@ -221,6 +225,7 @@ export async function reviewAdjustment(formData: FormData) {
     }
     await tx.auditLog.create({ data: { actor, action: approve ? "stock.adjust_approved" : "stock.adjust_rejected", entity: "StockMovement", entityId: id } });
   });
+  await checkStockLevels();
   refresh();
 }
 

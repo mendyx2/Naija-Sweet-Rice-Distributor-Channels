@@ -22,12 +22,13 @@ test("stores anywhere in Nigeria: a Lagos store's areas show under Lagos once HQ
   await page.getByLabel("Bank", { exact: true }).fill("Wema Bank");
   await page.getByLabel("Account number").fill("0123456780");
   await page.getByLabel("Account name").fill("Lagos Rice Ventures");
+  await page.getByLabel("50kg price in naira").fill("86000");
+  await page.getByLabel("Your full name").fill("Kemi Ade");
+  await page.getByLabel("Password", { exact: false }).first().fill("Lagos-rice-2026");
+  await page.getByLabel("Type it again").fill("Lagos-rice-2026");
   await page.getByLabel("I agree to the distributor terms above.").check();
   await page.getByRole("button", { name: "Open my store" }).click();
-  await page.waitForURL("**/partner/settings");
-  await page.getByLabel("50kg retail price").fill("86000");
-  await page.getByRole("button", { name: "Save prices" }).click();
-  await expect(statusText(page, /saved/i)).toBeVisible();
+  await page.waitForURL(/\/partner$/);
 
   const store = await db.distributor.findFirstOrThrow({ where: { name }, include: { homeZone: true, zoneFees: { include: { zone: true } } } });
   expect(store.homeZone).toMatchObject({ name: "Ikeja", state: "Lagos", kind: "AREA" });
@@ -69,18 +70,17 @@ test("stores anywhere in Nigeria: a Lagos store's areas show under Lagos once HQ
   await expect(shopper.getByRole("region", { name: "Lagos" })).toBeVisible();
 
   // The area picker: Lagos → Ikeja shows the Lagos store only (HQ doesn't deliver to Lagos)
-  await shopper.getByRole("button", { name: "Choose your area" }).click();
+  await shopper.getByRole("banner").getByRole("button", { name: "Choose your area" }).click();
   await shopper.locator("#area-picker-state").selectOption("Lagos");
   await expect(shopper.locator("#area-picker option")).toHaveText(["Choose your area…", "Agege", "Ikeja", "Ogba"]);
   await shopper.locator("#area-picker").selectOption({ label: "Ikeja" });
   await shopper.getByRole("button", { name: "Save area" }).click();
   await shopper.goto("/stores?state=Lagos");
   await shopper.getByRole("listitem", { name: "Ikeja, Lagos" }).getByRole("button", { name: `Buy from ${name}` }).click();
-  await shopper.waitForURL("**/p/naija-sweet-rice");
-  const list = shopper.getByRole("radiogroup", { name: "Stores in Ikeja" });
-  await expect(list.getByRole("radio")).toHaveCount(1);
-  await expect(list.getByRole("radio", { name: new RegExp(name) })).toContainText("₦86,000");
-  await expect(shopper.getByRole("button", { name: "Add to cart" })).toBeVisible();
+  await shopper.waitForURL(`**/stores/${store.slug}`);
+  const bag = shopper.getByRole("listitem", { name: "50kg bag" });
+  await expect(bag).toContainText("₦86,000");
+  await expect(bag.getByRole("button", { name: "Add to cart" })).toBeVisible();
 
   await db.distributor.update({ where: { id: store.id }, data: { status: "REJECTED" } });
 });

@@ -3,6 +3,7 @@ import { Prisma, type OrderType, type PaymentMethod, type StockMovementType } fr
 import { db } from "./db";
 import { pointsForOrder, pointsToExpire } from "./rewards";
 import { newCouponCode } from "./redeem";
+import { checkStockLevels } from "./stock-alerts";
 import { alertHq, notifyOrderPaid, notifyPaymentReminder, notifySampleFollowUp } from "./notify";
 import { holdStock, moveStock } from "./stock";
 import { PAYMENT_HOLD_HOURS, PAYMENT_REMINDER_HOURS } from "./network-rules";
@@ -59,7 +60,7 @@ export async function createPendingOrder(input: CreateOrderInput) {
 
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      return await db.$transaction(async (tx) => {
+      const created = await db.$transaction(async (tx) => {
         for (const l of input.lines) {
           if (!(await holdStock(tx, input.distributorId, l.variantId, l.qty))) {
             throw new CheckoutError(`Sorry, there aren't enough ${l.sizeKg}kg bags left. Please update your cart.`);
@@ -102,6 +103,9 @@ export async function createPendingOrder(input: CreateOrderInput) {
           include: { distributor: true },
         });
       });
+      // Holding bags can tip a store into running low: tell HQ once.
+      await checkStockLevels([input.distributorId]);
+      return created;
     } catch (e) {
       // Retry only on order-number collision.
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") continue;
@@ -151,7 +155,7 @@ export async function markOrderPaid(
   number: string,
   p: { source: string; reference?: string; amountKobo?: number; currency?: string },
 ): Promise<MarkPaidResult> {
-  const order = await db.order.findUnique({ where: { number }, include: { items: true, user: true } });
+  const order = await db.order.findUnique({ where: { number }, include: { items: true, user: true, distributor: true } });
   if (!order) return "NOT_FOUND";
   if (order.paidAt) return "ALREADY_PAID";
 
@@ -212,7 +216,8 @@ export async function markOrderPaid(
     return "PAID" as const;
   });
 
-  if (result === "PAID" && order.totalKobo > 0) await notifyOrderPaid(order);
+  // Every confirmed order gets an emailed receipt (free samples included).
+  if (result === "PAID") await notifyOrderPaid({ ...order, paidAt: new Date(), reference: p.reference ?? null });
   return result;
 }
 

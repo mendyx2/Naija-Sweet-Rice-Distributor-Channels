@@ -50,7 +50,7 @@ export function CheckoutForm({
     return (
       <div className="mt-6 card p-10 text-center">
         <p className="text-lg font-semibold">Your cart is empty</p>
-        <Link href="/shop" className="btn-cta mt-6">Shop rice</Link>
+        <Link href="/stores" className="btn-cta mt-6">Find a store</Link>
       </div>
     );
   }

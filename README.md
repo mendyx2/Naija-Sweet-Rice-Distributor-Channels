@@ -28,7 +28,7 @@ with their **email address** and a 6-digit code sent by email (Resend). Customer
 alerts go to Telegram and/or email (all free). There is no SMS during the soft launch. Without the provider keys, local
 development shows the sign-in code on screen and prints messages to the server log.
 
-Staff screens live at **/ops**: HQ staff sign in with their own email address (owners come from `HQ_OWNER_EMAILS`; owners add the rest under **HQ team**). Distributors use **/partner** (email sign-in; HQ adds their email in `/ops/distributors`).
+Staff screens live at **/ops**: HQ staff sign in at **/ops/login** with their own email and password, and every sign-in emails a login alert (owners come from `HQ_OWNER_EMAILS` and set their first password at **/ops/password**; owners add the rest under **HQ team**). Distributors register at **/partner/join** and sign in separately at **/partner/login**.
 
 - **/ops/distributors**: add distributors, set their bank account (HQ only), areas, logins, send stock, approve stock adjustments, see their month.
 - **/ops/restocks**: distributor stock requests: invoice, confirm payment, dispatch.

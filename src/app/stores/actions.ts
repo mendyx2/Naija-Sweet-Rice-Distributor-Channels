@@ -14,7 +14,8 @@ export type StoreListing = {
   pickup: boolean;
   joinsHqPromotions: boolean;
   delivery: { baseFeeKobo: number; perKgFeeKobo: number; minOrderKg: number | null; etaHours: number | null } | null;
-  sizes: { variantId: string; sizeKg: number; priceKobo: number | null; compareAtKobo: number | null; available: number }[];
+  /** Buyers never see stock levels: only whether a size can be bought at this store. */
+  sizes: { variantId: string; sizeKg: number; priceKobo: number | null; compareAtKobo: number | null; available: boolean }[];
 };
 
 /** The stores a customer in this area can buy from, for the store list on product, cart and area pages. */
@@ -42,7 +43,7 @@ export async function getAreaStores(zoneId: string, variantId?: string | null): 
         priceKobo: v.retailPriceKobo,
         // HQ's "was" price is an HQ promotion; distributors' prices are shown as they are.
         compareAtKobo: s.isHq ? (compareAt.get(v.variantId) ?? null) : null,
-        available: v.available,
+        available: v.available > 0 && v.retailPriceKobo != null,
       })),
     })),
   };

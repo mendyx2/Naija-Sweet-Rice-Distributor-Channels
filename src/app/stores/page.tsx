@@ -6,6 +6,8 @@ import { site } from "@/lib/site";
 import { isNigerianState, NIGERIAN_STATES, sortStates, stateLabel } from "@/lib/states";
 import { formatNgPhone } from "@/lib/phone";
 import { ShopButton } from "./shop-button";
+import { FindStoreBox } from "@/components/find-store-box";
+import { getShoppingAreas } from "@/lib/catalogue";
 
 export const metadata: Metadata = {
   title: "Find a store",
@@ -48,10 +50,51 @@ async function Directory({ searchParams }: Pick<PageProps<"/stores">, "searchPar
   const areas = directory.filter(matches);
   const byState = sortStates(areas.map((a) => a.state)).map((s) => ({ state: s, areas: areas.filter((a) => a.state === s) }));
   const storeCount = new Set(areas.flatMap((a) => a.stores.map((s) => s.id))).size;
+  const picked = typeof sp.area === "string" ? directory.find((a) => a.id === sp.area) ?? null : null;
+  const zones = await getShoppingAreas();
 
   return (
     <>
-      <form method="get" className="mt-6 card p-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] sm:items-end" role="search">
+      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,22rem)_1fr] items-start">
+        <FindStoreBox zones={zones} id="stores-find" />
+        {picked ? (
+          <section aria-labelledby="picked" className="rounded-3xl bg-brand-soft p-5 sm:p-6">
+            <h2 id="picked" className="font-display text-2xl font-bold text-brand">
+              {picked.stores.length} store{picked.stores.length === 1 ? "" : "s"} for {picked.name}, {stateLabel(picked.state)}
+            </h2>
+            <p className="text-sm text-muted">Pick a store to see its prices and order.</p>
+            <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+              {picked.stores.map((st) => (
+                <li key={st.id}>
+                  <ShopButton zoneId={picked.id} storeId={st.id} href={`/stores/${st.slug}`}
+                    className="tilt-card block w-full rounded-2xl bg-surface p-4 text-left shadow-sm">
+                    <span className="block font-display text-lg font-bold">{st.name}</span>
+                    {st.address && <span className="block text-sm text-muted">{st.address}</span>}
+                    <span className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                      {st.shopHere && <span className="font-semibold text-brand">Shop in this area</span>}
+                      {st.deliversHere && <span>Delivers here</span>}
+                      {st.pickup && st.shopHere && <span>Free pickup</span>}
+                    </span>
+                    <span className="mt-3 inline-block font-semibold text-brand">Visit store →</span>
+                  </ShopButton>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : (
+          <section className="rounded-3xl bg-brand-soft p-5 sm:p-6">
+            <h2 className="font-display text-2xl font-bold text-brand">Buy from an authorised store</h2>
+            <ol className="mt-3 space-y-1 text-sm">
+              <li>1. Choose your state and area.</li>
+              <li>2. Pick a store: each one sets its own prices and delivery fee.</li>
+              <li>3. Add your bags, pay the store by transfer, and get your receipt by email.</li>
+            </ol>
+          </section>
+        )}
+      </div>
+
+      <h2 className="mt-10 font-display text-2xl font-bold">All stores</h2>
+      <form method="get" className="mt-4 card p-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] sm:items-end" role="search">
         <label className="block text-sm">
           <span className="font-semibold">State</span>
           <select name="state" defaultValue={state} className="field">
@@ -92,13 +135,13 @@ async function Directory({ searchParams }: Pick<PageProps<"/stores">, "searchPar
               <li key={a.id} className="card p-5" aria-label={`${a.name}, ${stateLabel(a.state)}`}>
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h3 className="font-semibold text-lg">{a.name}</h3>
-                  <ShopButton zoneId={a.id} className="text-sm font-semibold text-brand underline">Shop in {a.name} →</ShopButton>
+                  <ShopButton zoneId={a.id} href={`/stores?area=${a.id}`} className="text-sm font-semibold text-brand underline">Shop in {a.name} →</ShopButton>
                 </div>
                 <ul className="mt-3 space-y-3">
                   {a.stores.map((st) => (
                     <li key={st.id} className="rounded-xl bg-background p-3 text-sm">
                       <p className="font-semibold">
-                        {st.isHq ? st.name : <Link href={`/distributors/${st.slug}`} className="hover:underline">{st.name}</Link>}
+                        {st.isHq ? st.name : <Link href={`/stores/${st.slug}`} className="hover:underline">{st.name}</Link>}
                       </p>
                       {st.address && <p className="text-muted">{st.address}</p>}
                       <p className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
@@ -107,7 +150,7 @@ async function Directory({ searchParams }: Pick<PageProps<"/stores">, "searchPar
                         {st.pickup && st.shopHere && <span>Free pickup</span>}
                         {st.phone && <a className="underline" href={`tel:${st.phone}`}>{formatNgPhone(st.phone)}</a>}
                       </p>
-                      <ShopButton zoneId={a.id} storeId={st.id} className="mt-2 text-xs font-semibold text-brand underline">Buy from {st.name}</ShopButton>
+                      <ShopButton zoneId={a.id} storeId={st.id} href={`/stores/${st.slug}`} className="mt-2 text-xs font-semibold text-brand underline">Buy from {st.name}</ShopButton>
                     </li>
                   ))}
                 </ul>

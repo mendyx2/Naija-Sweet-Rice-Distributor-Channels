@@ -1,20 +1,48 @@
 import { expect, test } from "@playwright/test";
 import { db } from "./db";
-import { GOVA_OWNER, HQ_OWNER, loginWithCode, newEmail, signInAs, statusText } from "./helpers";
+import { GOVA_OWNER, HQ_OWNER, newEmail, passwordLinkFor, signInAs, statusText } from "./helpers";
+
+const HQ_PASSWORD = "Hq-owner-2026";
 
 test.describe.configure({ mode: "serial" });
 
-test("customers can't open HQ screens", async ({ page }) => {
+test("customer and distributor sign-ins can't open HQ screens", async ({ page, browser }) => {
   await signInAs(page.context(), newEmail());
   await page.goto("/ops/prices");
-  await expect(page.getByText("doesn't have HQ access")).toBeVisible();
+  await page.waitForURL(/\/ops\/login/);
+  // Even an HQ owner's customer (email-code) session isn't an HQ sign-in.
+  const c = await browser.newContext();
+  await signInAs(c, HQ_OWNER, { kind: "CUSTOMER" });
+  const p = await c.newPage();
+  await p.goto("/ops/orders");
+  await p.waitForURL(/\/ops\/login/);
 });
 
-test("the HQ owner signs in with an email code and manages the team; staff have limited access", async ({ page, browser }) => {
+test("the HQ owner sets a password from an emailed link, signs in with it, and manages the team; staff have limited access", async ({ page, browser }) => {
   await page.context().addInitScript(() => localStorage.setItem("nsr_consent", "denied"));
-  await page.goto("/ops/login");
-  await loginWithCode(page, HQ_OWNER); // in HQ_OWNER_EMAILS
+  // First time: ask for a link (HQ_OWNER is in HQ_OWNER_EMAILS).
+  await page.goto("/ops/password");
+  await page.getByLabel("Email address").fill(HQ_OWNER);
+  await page.getByRole("button", { name: "Email me a link" }).click();
+  await expect(page.getByRole("status")).toContainText("sent a link");
+  await expect.poll(() => db.passwordToken.count({ where: { user: { email: HQ_OWNER }, purpose: "HQ" } })).toBeGreaterThan(0);
+  // The emailed link (a fresh one, made here as the email itself isn't readable in tests).
+  await page.goto(await passwordLinkFor(HQ_OWNER, "HQ"));
+  await page.getByLabel("New password").fill("lettersonlypassword");
+  await page.getByLabel("Type it again").fill("lettersonlypassword");
+  await page.getByRole("button", { name: "Save password" }).click();
+  await expect(page.locator("main [role=alert]")).toContainText("one letter and one number");
+  await page.getByLabel("New password").fill(HQ_PASSWORD);
+  await page.getByLabel("Type it again").fill(HQ_PASSWORD);
+  await page.getByRole("button", { name: "Save password" }).click();
+  await page.waitForURL("**/ops/login?set=1");
+
+  await page.getByLabel("Email address").fill(HQ_OWNER);
+  await page.getByLabel("Password", { exact: true }).fill(HQ_PASSWORD);
+  const signIns = await db.auditLog.count({ where: { action: "hq.sign_in" } });
+  await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL("**/ops/orders");
+  expect(await db.auditLog.count({ where: { action: "hq.sign_in" } })).toBe(signIns + 1); // every sign-in is recorded and announced
   await expect(page.getByRole("link", { name: "HQ team" })).toBeVisible();
 
   const staffEmail = newEmail("ada");

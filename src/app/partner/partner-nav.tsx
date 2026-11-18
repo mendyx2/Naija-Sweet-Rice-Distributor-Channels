@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { signOut } from "../login/actions";
+import { partnerSignOut } from "./login/actions";
 
 const TABS = [
   { href: "/partner", label: "Orders", key: "orders" },
@@ -9,6 +9,7 @@ const TABS = [
   { href: "/partner/alerts", label: "Alerts", key: "alerts" },
   { href: "/partner/settings", label: "Prices & delivery", key: "settings", owner: true },
   { href: "/partner/staff", label: "Staff", key: "staff", owner: true },
+  { href: "/partner/profile", label: "Profile", key: "profile" },
 ] as const;
 
 export function PartnerNav({ current, name, isOwner, status }: { current: (typeof TABS)[number]["key"]; name: string; isOwner: boolean; status?: string }) {
@@ -22,7 +23,7 @@ export function PartnerNav({ current, name, isOwner, status }: { current: (typeo
       )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted">Partner portal · <strong className="text-foreground">{name}</strong></p>
-        <form action={signOut}><button className="text-sm text-muted underline">Sign out</button></form>
+        <form action={partnerSignOut}><button className="text-sm text-muted underline">Sign out</button></form>
       </div>
       <nav className="mt-3 flex flex-wrap gap-2 text-sm" aria-label="Partner">
         {TABS.filter((t) => !("owner" in t) || isOwner).map((t) => (

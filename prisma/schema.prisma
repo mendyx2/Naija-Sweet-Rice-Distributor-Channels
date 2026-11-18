@@ -7,7 +7,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
   // The running site uses DATABASE_URL, which may be pooled (e.g. Neon's pooled connection on Vercel).
   // Migrations need a direct connection: DATABASE_URL_UNPOOLED (the same value when there is no pooler).
   url       = env("DATABASE_URL")
@@ -54,16 +54,19 @@ model User {
   sessions          Session[]
   telegramChats     TelegramChat[]
   distributorMember DistributorMember?
+  passwordTokens    PasswordToken[]
 }
 
 /// Login session. The cookie holds a random token; only its SHA-256 hash is stored.
 model Session {
-  id        String   @id @default(cuid())
-  tokenHash String   @unique
+  id        String      @id @default(cuid())
+  tokenHash String      @unique
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// What this sign-in can open. A customer code sign-in never opens the distributor portal or HQ.
+  kind      SessionKind @default(CUSTOMER)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
-  createdAt DateTime @default(now())
+  createdAt DateTime    @default(now())
   userAgent String?
 
   @@index([userId])
@@ -170,6 +173,8 @@ model Variant {
   distributorPrices   DistributorPrice[]
   hqFees              HqFeeRate[]
   stockMovements      StockMovement[]
+  /// HQ is alerted when a store's available bags of this size fall to this level. Null = default for the size.
+  lowStockAt          Int?
 
   @@unique([productId, sizeKg])
 }
@@ -648,6 +653,9 @@ model DistributorStock {
   onHand        Int         @default(0)
   held          Int         @default(0) // held for unpaid online orders
   inTransit     Int         @default(0) // sent by HQ, not yet confirmed received
+  /// When the running-low / sold-out alerts were sent (cleared once restocked), so each is sent once.
+  lowAlertAt    DateTime?
+  outAlertAt    DateTime?
   reorderPoint  Int?
   updatedAt     DateTime    @updatedAt
 
@@ -790,4 +798,29 @@ model TelegramChat {
   linkedAt DateTime @default(now())
 
   @@index([userId])
+}
+
+enum SessionKind {
+  CUSTOMER // email code, at /login or checkout
+  PARTNER // distributor portal, email + password at /partner/login
+  HQ // HQ console, email + password at /ops/login
+}
+
+enum PasswordPurpose {
+  HQ
+  PARTNER
+}
+
+/// One-time links to set or reset a password (HQ or distributor). Only a hash of the token is stored.
+model PasswordToken {
+  id        String          @id @default(cuid())
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose   PasswordPurpose
+  tokenHash String          @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime        @default(now())
+
+  @@index([userId, purpose])
 }

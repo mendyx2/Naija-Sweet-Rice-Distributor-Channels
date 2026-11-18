@@ -7,12 +7,12 @@ import { HQ_OWNER, signInAs } from "./helpers";
  * that out of the real tests.
  */
 const PAGES = [
-  "/", "/shop", "/p/naija-sweet-rice", "/cart", "/checkout", "/stores", "/delivery", "/delivery/gwarinpa",
-  "/distributors/gova-max-ltd", "/promotions", "/samples", "/track", "/login", "/register", "/faq", "/privacy", "/terms",
+  "/", "/stores/hq", "/cart", "/checkout", "/stores", "/delivery", "/delivery/gwarinpa",
+  "/stores/gova-max-ltd", "/promotions", "/samples", "/track", "/login", "/register", "/faq", "/privacy", "/terms",
   "/returns-policy", "/account", "/orders/NSR-WARMUP", "/orders/NSR-WARMUP/replace",
   "/partner", "/partner/join", "/partner/no-access", "/partner/stock", "/partner/sales", "/partner/settings",
-  "/partner/reports", "/partner/staff", "/partner/alerts",
-  "/ops/login", "/ops/orders", "/ops/distributors", "/ops/distributors/hq", "/ops/network", "/ops/statements",
+  "/partner/reports", "/partner/staff", "/partner/alerts", "/partner/profile", "/partner/login", "/partner/password",
+  "/ops/login", "/ops/password", "/ops/orders", "/ops/stock", "/ops/distributors", "/ops/distributors/hq", "/ops/network", "/ops/statements",
   "/ops/returns", "/ops/reports", "/ops/prices", "/ops/zones", "/ops/partners", "/ops/promotions", "/ops/team",
 ];
 

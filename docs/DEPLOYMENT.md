@@ -79,9 +79,15 @@ Never put these in chat, email or the code. Enter them only in Vercel's settings
 
 ## 5. First sign-in and setup in `/ops`
 
-Go to `https://yourdomain/ops` and sign in with an email address from `HQ_OWNER_EMAILS`. Then:
+HQ signs in with **email + password**, separate from customer and distributor sign-ins. The first time:
 
-1. **HQ team:** add the other HQ staff by phone (owner or staff).
+1. Go to `https://yourdomain/ops/password`, enter an email address from `HQ_OWNER_EMAILS` and press **Email me a link**.
+2. Open the email, choose a password (at least 10 characters, with a letter and a number). The link works once, for 60 minutes.
+3. Sign in at `https://yourdomain/ops/login`. **Every HQ sign-in sends an alert email** to that person and to HQ's alerts (`OPS_ALERT_EMAIL` and Telegram) with the time, IP address and device, so you know whenever the console is opened. HQ sessions last 12 hours. Forgot the password? Use `/ops/password` again.
+
+Then:
+
+1. **HQ team:** add the other HQ staff by email (owner or staff). Each gets an email link to set their own password.
 2. **Distributors → Naija Sweet Rice HQ:** enter HQ's bank account (customers of HQ pay into it, and distributors pay restock invoices into it).
 3. **Prices & stock**, per bag size:
    - HQ retail price and HQ stock;
@@ -89,7 +95,7 @@ Go to `https://yourdomain/ops` and sign in with an email address from `HQ_OWNER_
    - **distributor range** (lowest–highest retail price distributors may set);
    - **HQ fee per bag** (charged on distributor online sales).
 4. **HQ delivery fees:** confirm the fee per area (the starting values are placeholders).
-5. **Distributors.** New distributors open their own store at `https://yourdomain/partner/join` (link in the site footer). They enter their business, bank account, areas and delivery fee. You get a Telegram/email alert. Open the store in **Distributors**, check it and press **Approve store** (owners only), then record the opening stock they bought from you with **Dispatch from HQ**. They confirm receipt and the store is live.
+5. **Distributors.** New distributors open their own store at `https://yourdomain/partner/join` ("Become a distributor" on the home page and menu). They verify their email with a code, then enter their business, **their price for each bag size** (inside your range), bank account, areas, delivery fee and a **password**. They sign in at `/partner/login` (separate from HQ) and edit their details later under **Profile**. You get a Telegram/email alert. Open the store in **Distributors**, check it and press **Approve store** (owners only), then record the opening stock they bought from you with **Dispatch from HQ**. They confirm receipt and the store is live.
    No distributor is pre-loaded, Gova Max Ltd included: send them the link to `/partner/join`.
 6. **Alerts:** on the Distributors page, connect HQ's Telegram (§7). Ask each distributor to connect theirs under **Alerts** in the partner portal.
 7. **Promotions**, if you want one at launch.
@@ -131,8 +137,8 @@ curl -H "Authorization: Bearer YOUR_CRON_SECRET" https://yourdomain/api/cron/rel
 **Email (Resend): required, because sign-in codes go by email**
 1. Create an account and verify your domain (add the DNS records it shows, including the SPF and DKIM ones; this keeps codes out of spam).
 2. Set `RESEND_API_KEY`, `EMAIL_FROM` and `OPS_ALERT_EMAIL`, then redeploy. The site won't start without the first two.
-3. Sign in to `/ops` yourself to check a code arrives within a minute.
-4. Watch the volume: Resend's free plan allows about 100 emails a day (3,000 a month). Each order sends 2–5 emails and each sign-in 1. Move to the paid plan when the soft launch gets busier.
+3. Request a password link at `/ops/password` yourself to check the email arrives within a minute.
+4. Watch the volume: Resend's free plan allows about 100 emails a day (3,000 a month). Each order sends 2–5 emails (including the itemised receipt once payment is confirmed), each customer sign-in 1, and each HQ sign-in 1–2 (the login alert). Move to the paid plan when the soft launch gets busier.
 
 **Google stock sheet** (a developer can do this in 10 minutes)
 1. In Google Cloud, create a project, enable the **Google Sheets API**, and create a **service account** with a JSON key.

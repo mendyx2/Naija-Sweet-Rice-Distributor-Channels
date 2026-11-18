@@ -56,7 +56,7 @@ export type QuoteIssue =
   | { code: "INVALID_QTY"; variantId: string }
   | { code: "UNKNOWN_VARIANT"; variantId: string }
   | { code: "NOT_FOR_SALE"; variantId: string }
-  | { code: "OUT_OF_STOCK"; variantId: string; available: number }
+  | { code: "OUT_OF_STOCK"; variantId: string; soldOut: boolean }
   | { code: "ZONE_UNAVAILABLE" }
   | { code: "BELOW_MIN_KG"; minKg: number; cartKg: number }
   | { code: "BELOW_MIN_VALUE"; minKobo: number; subtotalKobo: number };
@@ -145,7 +145,7 @@ export function quote(input: QuoteInput): Quote {
       continue;
     }
     const available = Math.max(v.stockQty - v.reservedQty, 0);
-    if (qty > available) issues.push({ code: "OUT_OF_STOCK", variantId, available });
+    if (qty > available) issues.push({ code: "OUT_OF_STOCK", variantId, soldOut: available === 0 });
     lines.push({
       variantId,
       sizeKg: v.sizeKg,
@@ -199,9 +199,9 @@ export function describeIssue(issue: QuoteIssue, fmt: (kobo: number) => string):
     case "NOT_FOR_SALE":
       return "One of the items in your cart is no longer available.";
     case "OUT_OF_STOCK":
-      return issue.available === 0
-        ? "One of the bag sizes in your cart is out of stock."
-        : `Only ${issue.available} bag(s) of one size are left. Please reduce the quantity.`;
+      return issue.soldOut
+        ? "One of the sizes in your cart is currently unavailable at this store. Remove it, or order it from Naija Sweet Rice HQ."
+        : "One size isn't available in that quantity at this store. Please reduce the quantity, or order from Naija Sweet Rice HQ.";
     case "ZONE_UNAVAILABLE":
       return "We are not delivering to this area at the moment.";
     case "BELOW_MIN_KG":

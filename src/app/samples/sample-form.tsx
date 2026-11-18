@@ -32,7 +32,7 @@ export function SampleForm({ zones, sampleVariantId, defaults }: {
     startTransition(async () => {
       const r = await getAreaStores(zoneId, sampleVariantId);
       // Stores with a sample in stock first; pick the only one automatically.
-      const list = (r?.stores ?? []).filter((s) => (s.sizes.find((v) => v.variantId === sampleVariantId)?.available ?? 0) > 0);
+      const list = (r?.stores ?? []).filter((s) => !!s.sizes.find((v) => v.variantId === sampleVariantId)?.available);
       setStores({ zoneId, list });
       setStoreId(list.length === 1 ? list[0].id : "");
     });

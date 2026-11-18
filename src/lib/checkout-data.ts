@@ -12,7 +12,8 @@ export type CartViewLine = {
   imageUrl: string | null;
   qty: number;
   unitPriceKobo: number | null;
-  available: number;
+  /** The store has enough for this quantity. Stock levels themselves never reach the buyer. */
+  enough: boolean;
   forSale: boolean;
 };
 
@@ -99,7 +100,7 @@ export async function priceCart(opts: {
       imageUrl: v.imageUrl,
       qty: l.qty,
       unitPriceKobo: price ?? null,
-      available: o?.available ?? 0,
+      enough: (o?.available ?? 0) >= l.qty,
       forSale: !!o?.active && price != null,
     };
   });

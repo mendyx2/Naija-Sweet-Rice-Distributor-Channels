@@ -47,7 +47,7 @@ describe("quote", () => {
     expect(quote({ lines: [{ variantId: "5", qty: 0 }], variants, zone: abuja }).ok).toBe(false);
     expect(quote({ lines: [{ variantId: "5", qty: 1.5 }], variants, zone: abuja }).ok).toBe(false);
     const q = quote({ lines: [{ variantId: "5", qty: 101 }], variants, zone: abuja });
-    expect(q.issues).toContainEqual({ code: "OUT_OF_STOCK", variantId: "5", available: 100 });
+    expect(q.issues).toContainEqual({ code: "OUT_OF_STOCK", variantId: "5", soldOut: false });
   });
 
   it("merges duplicate lines", () => {

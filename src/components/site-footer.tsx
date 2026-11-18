@@ -22,7 +22,7 @@ export function SiteFooter() {
           <p>{site.hoursLabel}</p>
         </address>
         <ul className="space-y-2">
-          <li><Link className="hover:text-white hover:underline" href="/shop">Shop all bag sizes</Link></li>
+          <li><Link className="hover:text-white hover:underline" href="/stores">Find a store</Link></li>
           <li><Link className="hover:text-white hover:underline" href="/delivery">Delivery areas &amp; fees</Link></li>
           <li><Link className="hover:text-white hover:underline" href="/track">Track your order</Link></li>
           <li><Link className="hover:text-white hover:underline" href="/returns-policy">Bag replacement policy</Link></li>

@@ -5,7 +5,7 @@ export default function NoAccess({ searchParams }: PageProps<"/partner/no-access
   return (
     <div className="mx-auto max-w-md card p-8 text-center">
       <Suspense fallback={null}><Message searchParams={searchParams} /></Suspense>
-      <Link href="/" className="btn-outline mt-6">Back to the shop</Link>
+      <Link href="/" className="btn-outline mt-6">Back to the home page</Link>
     </div>
   );
 }

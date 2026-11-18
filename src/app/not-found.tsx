@@ -7,7 +7,7 @@ export default function NotFound() {
       <h1 className="font-display text-3xl font-bold mt-4">We couldn&apos;t find that page</h1>
       <p className="mt-2 text-muted">It may have moved. Here are some places to start:</p>
       <div className="mt-8 flex flex-wrap justify-center gap-3">
-        <Link href="/shop" className="btn-cta">Shop rice</Link>
+        <Link href="/stores" className="btn-cta">Find a store</Link>
         <Link href="/track" className="btn-outline">Track an order</Link>
       </div>
     </div>

@@ -21,7 +21,7 @@ export async function getPublicDistributors() {
   }));
 }
 
-export const shopLink = (slug: string) => `${site.url}/distributors/${slug}`;
+export const shopLink = (slug: string) => `${site.url}/stores/${slug}`;
 
 /** Printable QR code (SVG) for a distributor's shop link, e.g. for their counter or delivery van. */
 export async function shopQrSvg(slug: string): Promise<string> {
